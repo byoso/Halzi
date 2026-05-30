@@ -1,0 +1,422 @@
+.medias-root {
+	background: linear-gradient(to bottom, #f7fbf7 0%, #eef6f0 100%);
+}
+
+.media-controls {
+	background-color: #e2efe6;
+	border-bottom: 1px solid #cddfd2;
+	padding: 10px 14px;
+}
+
+.add-media-button {
+	background-image: none;
+	background-color: #19944b;
+	color: #ffffff;
+	border: 1px solid #0e6f34;
+	border-radius: 8px;
+	font-weight: 700;
+	padding: 8px 14px;
+}
+
+.add-media-button:hover {
+	background-color: #1daf57;
+}
+
+.add-media-button:active {
+	background-color: #157f3f;
+}
+
+.media-list {
+	background-color: rgba(255, 255, 255, 0.88);
+}
+
+.media-row {
+  border: 3px solid #cacaca;
+  border-radius: 5px;
+  background-image: none;
+  background-color: transparent;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 5px;
+  margin-bottom: 0;
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.media-row-selected {
+  border: 3px solid #26c465;
+  background-image: none;
+  background-color: transparent;
+}
+
+.media-row:focus {
+  border: 3px solid #26c465;
+  background-image: none;
+  background-color: transparent;
+}
+
+.save-row,
+.save-row:selected,
+.save-row:focus {
+  border: none;
+  background-image: none;
+  background-color: transparent;
+}
+
+.media-name {
+	font-size: 15px;
+	font-weight: 700;
+	color: #153022;
+}
+
+.media-path,
+.media-description,
+.media-empty {
+	font-size: 12px;
+	color: #496053;
+}
+
+.status-bar {
+	background-color: #dfe9e2;
+	border-top: 1px solid #c8d6cb;
+}
+
+.status-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: #2e4a38;
+}
+.media-valid {
+  color: #19944b;
+}
+
+.media-invalid {
+  color: #cc2222;
+}
+
+.selected-media-info {
+  padding: 0 6px;
+}
+
+.selected-media-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #153022;
+}
+
+.selected-media-path {
+  font-size: 11px;
+  color: #496053;
+}
+
+.no-media-label {
+  font-size: 13px;
+  font-style: italic;
+  color: #7a9a84;
+}
+
+.refresh-button {
+  background-image: none;
+  background-color: #4a7fa5;
+  color: #ffffff;
+  border: 1px solid #3a6a8a;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.op-spinner {
+  color: #4a7fa5;
+}
+
+.refresh-button:hover {
+  background-color: #5590b8;
+}
+
+.refresh-button:active {
+  background-color: #3a6a8a;
+}
+
+.delete-media-button {
+  background-image: none;
+  background-color: #cc2222;
+  color: #ffffff;
+  border: 1px solid #991a1a;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.delete-media-button:hover {
+  background-color: #e02828;
+}
+
+.delete-media-button:active {
+  background-color: #aa1c1c;
+}
+
+.delete-confirm-button {
+  background-image: none;
+  background-color: #cc2222;
+  color: #ffffff;
+  border: 1px solid #991a1a;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.delete-confirm-button:hover {
+  background-color: #e02828;
+}
+
+.save-row-device-button {
+  background-image: none;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.save-row-device-icon {
+  color: #153022;
+}
+
+.save-row-arrow-right {
+  background-image: none;
+  background-color: #19944b;
+  color: #ffffff;
+  border: 1px solid #0e6f34;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.save-row-arrow-right:hover {
+  background-color: #1daf57;
+}
+
+.save-row-arrow-left {
+  background-image: none;
+  background-color: #4a7fa5;
+  color: #ffffff;
+  border: 1px solid #3a6a8a;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.save-row-arrow-left:hover {
+  background-color: #5590b8;
+}
+
+.save-row-separator {
+  font-size: 18px;
+  font-weight: 700;
+  color: #153022;
+}
+
+.save-row-edit-button {
+  background-image: none;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 4px;
+  color: #496053;
+}
+
+.save-row-edit-button:hover {
+  background-color: #d4e8da;
+}
+
+.save-row-delete-button {
+  background-image: none;
+  background-color: #cc2222;
+  color: #ffffff;
+  border: 1px solid #991a1a;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+.save-row-delete-button:hover {
+  background-color: #e02828;
+}
+
+.save-row-delete-button:active {
+  background-color: #aa1c1c;
+}
+
+.simple-use-center-row {
+  border: 2px solid #cadbcf;
+  border-radius: 14px;
+  background-color: rgba(255, 255, 255, 0.78);
+  padding: 24px 28px;
+}
+
+.simple-use-device-button {
+  padding: 8px;
+}
+
+.simple-use-device-icon {
+  color: #153022;
+}
+
+.simple-use-arrow-button {
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.simple-use-separator {
+  font-size: 26px;
+  letter-spacing: 2px;
+}
+
+.jarvis-root {
+  background: linear-gradient(to bottom, #f7fbf7 0%, #eef6f0 100%);
+}
+
+.jarvis-panel {
+  background-color: rgba(255, 255, 255, 0.88);
+  border: 1px solid #cddfd2;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.jarvis-scroll {
+  background-color: transparent;
+}
+
+.jarvis-placeholder-btn {
+  background-image: none;
+  background-color: #19944b;
+  color: #ffffff;
+  border: 1px solid #0e6f34;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 700;
+}
+
+.jarvis-placeholder-btn:hover {
+  background-color: #1daf57;
+}
+
+.jarvis-output {
+  background-color: rgba(255, 255, 255, 0.78);
+  border: 1px solid #d8e6dc;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.jarvis-output-text {
+  color: #153022;
+  font-size: 14px;
+}
+
+.jarvis-input-area {
+  background-color: rgba(245, 250, 247, 0.9);
+  border-top: 1px solid #cddfd2;
+}
+
+.jarvis-input-label {
+  color: #2e4a38;
+  font-weight: 700;
+}
+
+.jarvis-input-text {
+  border: 1px solid #b8d1c0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #153022;
+}
+
+.jarvis-option-row {
+  background-color: rgba(223, 233, 226, 0.7);
+  border: 1px solid #c8d6cb;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.jarvis-header-toggle {
+  background-image: none;
+  border: 2px solid #cddfd2;
+  border-radius: 8px;
+  padding: 4px;
+  transition: none;
+}
+
+.jarvis-header-toggle:hover {
+  border-color: #bfcfc4;
+}
+
+.jarvis-header-toggle-on,
+.jarvis-header-toggle-on:hover,
+.jarvis-header-toggle-on:checked {
+  border: 2px solid #19944b;
+}
+
+.jarvis-memorize-button {
+  background-image: none;
+  background-color: #4a7fa5;
+  color: #ffffff;
+  border: 1px solid #3a6a8a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
+.jarvis-memorize-button:hover {
+  background-color: #5590b8;
+}
+
+.jarvis-status-bar {
+  background-color: #dfe9e2;
+  border-top: 1px solid #c8d6cb;
+}
+
+.jarvis-status-label {
+  color: #2e4a38;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.jarvis-add-theme-button,
+.jarvis-create-theme-button {
+  background-image: none;
+  background-color: #4a7fa5;
+  color: #ffffff;
+  border: 1px solid #3a6a8a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
+.jarvis-add-theme-button:hover,
+.jarvis-create-theme-button:hover {
+  background-color: #5590b8;
+}
+
+.jarvis-theme-button {
+  background-image: none;
+  background-color: #ffffff;
+  border: 2px solid #cddfd2;
+  border-radius: 8px;
+  color: #153022;
+  padding: 6px 10px;
+}
+
+.jarvis-theme-button:hover {
+  border-color: #bfcfc4;
+}
+
+.jarvis-theme-button-on,
+.jarvis-theme-button-on:hover,
+.jarvis-theme-button-on:checked {
+  border: 2px solid #19944b;
+}
+
+.jarvis-theme-delete-button {
+  background-image: none;
+  background-color: #cc2222;
+  color: #ffffff;
+  border: 1px solid #991a1a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-weight: 700;
+}
+
+.jarvis-theme-delete-button:hover {
+  background-color: #e02828;
+}

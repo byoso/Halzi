@@ -8,14 +8,14 @@ import sounddevice as sd
 import numpy as np
 import queue
 import time
+from typing import Optional
 
 from input_voice import process_audio_buffer
+from settings import SILENCE_DURATION_FOR_VALIDATION, SAMPLE_RATE, BLOCK_SIZE
 
 # =========================
 # CONFIG
 # =========================
-SAMPLE_RATE = 16000
-BLOCK_SIZE = 512  # ~30 ms
 
 
 def is_valid_text(text: str) -> bool:
@@ -55,7 +55,11 @@ def load_vad():
      VADIterator,
      collect_chunks) = utils
 
-    vad_iterator = VADIterator(model, sampling_rate=SAMPLE_RATE)
+    vad_iterator = VADIterator(
+        model,
+        sampling_rate=SAMPLE_RATE,
+        min_silence_duration_ms=SILENCE_DURATION_FOR_VALIDATION
+        )
 
     return vad_iterator
 
@@ -89,8 +93,8 @@ class AudioStream:
         self.stream.stop()
         self.stream.close()
 
-    def read(self):
-        return self.queue.get()
+    def read(self, timeout: Optional[float] = None):
+        return self.queue.get(timeout=timeout)
 
 
 # =========================
@@ -98,6 +102,15 @@ class AudioStream:
 # =========================
 
 def run_vad(vad_iterator):
+    for _ in iter_voice_prompts(vad_iterator):
+        pass
+
+
+def iter_voice_prompts(vad_iterator=None, stop_event=None):
+    """Yield validated transcripts from the microphone using VAD + Whisper."""
+    if vad_iterator is None:
+        vad_iterator = load_vad()
+
     speech_start = None
     audio_buffer = []
 
@@ -105,42 +118,39 @@ def run_vad(vad_iterator):
 
     with AudioStream() as stream:
         while True:
-            chunk = stream.read()
+            if stop_event is not None and stop_event.is_set():
+                return
+
+            try:
+                chunk = stream.read(timeout=0.1)
+            except queue.Empty:
+                continue
 
             audio = chunk.reshape(-1)
-
             tensor = torch.from_numpy(audio)
-
             speech_dict = vad_iterator(tensor)
 
-            # =========================
-            # START SPEECH
-            # =========================
             if speech_dict and "start" in speech_dict:
                 speech_start = time.time()
-                audio_buffer = []  # reset buffer
+                audio_buffer = []
                 print("🟢 Speech START")
 
-            # =========================
-            # COLLECT AUDIO
-            # =========================
             if speech_start is not None:
                 audio_buffer.append(audio.copy())
 
-            # =========================
-            # END SPEECH
-            # =========================
             if speech_dict and "end" in speech_dict:
+                if not audio_buffer or speech_start is None:
+                    speech_start = None
+                    audio_buffer = []
+                    continue
 
                 full_audio = np.concatenate(audio_buffer)
-
                 print(f"📦 BUFFER SIZE: {len(full_audio)} samples")
 
                 text = process_audio_buffer(audio_buffer=full_audio)
-
                 if is_valid_text(text):
-                    print("\n🗣️ TRANSCRIPTION:")
                     print(text)
+                    yield text
                 else:
                     print("❌ ignored noise")
 
