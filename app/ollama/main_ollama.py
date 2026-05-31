@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 
-from silly_engine.router import Router
-from silly_engine.text_tools import c, print_title
-from tui import main_menu
+from app.silly_engine.router import Router
+from app.silly_engine.text_tools import c, print_title
+from app.ollama.tui import main_menu
 
 def cli_run():
     print_title("Ollama AI Assistant", color=c.cyan, step=2)

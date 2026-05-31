@@ -1,9 +1,9 @@
 
 from typing import List, Tuple, Optional
 
-from silly_engine.minuit import Menu, MenuItem
-from silly_engine.text_tools import c
-from core import (
+from app.silly_engine.minuit import Menu, MenuItem
+from app.silly_engine.text_tools import c
+from app.ollama.core import (
     process_prompt,
     save_memory,
     MEMORY_DIR,
@@ -47,7 +47,7 @@ def tui_voice_prompt(history: Optional[List[Tuple[str, str]]] = None) -> None:
     print("\n\nvoice mode active - press ENTER at any time to stop and save memory")
 
     try:
-        from vad import load_vad, iter_voice_prompts
+        from app.vad.vad import load_vad, iter_voice_prompts
     except Exception as exc:
         print(f"{c.red}Voice mode unavailable: {exc}{c.end}")
         main_menu.ask()

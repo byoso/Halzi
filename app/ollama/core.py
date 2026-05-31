@@ -4,9 +4,14 @@
 from pathlib import Path
 import requests, json
 from datetime import datetime
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Callable
 import re
 import shutil
+import socket
+import subprocess
+import time
+
+from app.settings import OLLAMA_MODEL
 
 BASE_DIR = Path(__file__).parent
 MEMORY_DIR = BASE_DIR / "memory"
@@ -173,9 +178,72 @@ def build_input_for_api(prompt: str) -> str:
     parts.append("Assistant:")
     return "\n".join(parts)
 
-def process_prompt(prompt: str, display: bool = True, record: bool = True) -> Tuple[List[Tuple[str, str]], str]:
+
+def _is_ollama_port_open(host: str = "127.0.0.1", port: int = 11434, timeout: float = 1.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+def ensure_ollama_running(model: str = OLLAMA_MODEL, timeout: int = 30, poll_interval: float = 1.0, log_file: Optional[str] = None) -> bool:
+    """Ensure the Ollama service (and given model) is reachable on localhost:11434.
+
+    If the port is not open, attempt to start the model using the `ollama run {model}` CLI
+    in a detached process and wait up to `timeout` seconds for the service to become available.
+
+    Returns True if Ollama is reachable (either already running or successfully started),
+    False otherwise.
+    """
+    if _is_ollama_port_open():
+        return True
+
+    if log_file is None:
+        log_file = f"/tmp/ollama_{model}.log"
+
+    # Ensure the `ollama` CLI exists
+    if shutil.which("ollama") is None:
+        print(f"ollama CLI not found in PATH; cannot start model '{model}'.")
+        return False
+
+    try:
+        lf = open(log_file, "ab")
+    except Exception:
+        lf = None
+
+    try:
+        # Start the model in a separate session so it survives this process
+        popen = subprocess.Popen(["ollama", "run", model], stdout=lf or subprocess.DEVNULL, stderr=lf or subprocess.DEVNULL, start_new_session=True)
+    except Exception as exc:
+        if lf:
+            lf.close()
+        print(f"Failed to start ollama model '{model}': {exc}")
+        return False
+
+    # Poll until the port is open or timeout
+    start = time.time()
+    while time.time() - start < timeout:
+        if _is_ollama_port_open():
+            if lf:
+                lf.close()
+            return True
+        time.sleep(poll_interval)
+
+    # timed out
+    if lf:
+        lf.close()
+    print(f"Timed out waiting for ollama on port 11434 after {timeout} seconds. See {log_file} for output.")
+    return False
+
+def process_prompt(
+    prompt: str,
+    display: bool = True,
+    record: bool = True,
+    on_chunk: Optional[Callable[[str], None]] = None,
+) -> Tuple[List[Tuple[str, str]], str]:
     payload = {
-        "model": "mistral",
+        "model": OLLAMA_MODEL,
         "prompt": build_input_for_api(prompt),
         "stream": True,
     }
@@ -199,6 +267,11 @@ def process_prompt(prompt: str, display: bool = True, record: bool = True) -> Tu
         if piece:
             if display:
                 print(piece, end="", flush=True)
+            if on_chunk is not None:
+                try:
+                    on_chunk(piece)
+                except Exception:
+                    pass
             output += piece
 
     if record:

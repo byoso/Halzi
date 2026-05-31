@@ -6,13 +6,14 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk as gtk
 
+from app.settings import APP_NAME
 
 def _sync_toggle_style(button: gtk.ToggleButton) -> None:
     context = button.get_style_context()
     if button.get_active():
-        context.add_class("jarvis-header-toggle-on")
+        context.add_class("halzi-header-toggle-on")
     else:
-        context.remove_class("jarvis-header-toggle-on")
+        context.remove_class("halzi-header-toggle-on")
 
 
 def _on_toggle(button: gtk.ToggleButton) -> None:
@@ -23,7 +24,7 @@ def _build_toggle_button(icon_name: str) -> gtk.ToggleButton:
     button = gtk.ToggleButton()
     button.set_relief(gtk.ReliefStyle.NORMAL)
     button.set_focus_on_click(False)
-    button.get_style_context().add_class("jarvis-header-toggle")
+    button.get_style_context().add_class("halzi-header-toggle")
 
     icon = gtk.Image.new_from_icon_name(icon_name, gtk.IconSize.BUTTON)
     button.add(icon)
@@ -50,7 +51,7 @@ def _build_folder_button() -> gtk.Button:
     return button
 
 
-def build_headerbar(title: str = "Jarvis GUI") -> Tuple[gtk.HeaderBar, gtk.Button, gtk.ToggleButton, gtk.ToggleButton]:
+def build_headerbar(title: str = f"{APP_NAME} GUI") -> Tuple[gtk.HeaderBar, gtk.Button, gtk.ToggleButton, gtk.ToggleButton]:
     header = gtk.HeaderBar()
     header.set_show_close_button(True)
     header.props.title = title

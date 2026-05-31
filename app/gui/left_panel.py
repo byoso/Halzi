@@ -4,6 +4,7 @@ from gi.repository import Gtk as gtk
 from pathlib import Path
 from typing import Callable, Optional
 import sys
+from app import status_state
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OLLAMA_DIR = PROJECT_ROOT / "ollama"
@@ -15,28 +16,26 @@ try:
 except Exception:
     core = None
 
-from new_theme_dialog import NewThemeDialog
+from .new_theme_dialog import NewThemeDialog
 
 
 class ThemePanel(gtk.Box):
     def __init__(
         self,
-        on_status: Optional[Callable[[str], None]] = None,
         on_theme_changed: Optional[Callable[[str], None]] = None,
     ):
         super().__init__(orientation=gtk.Orientation.VERTICAL, spacing=0)
-        self.get_style_context().add_class("jarvis-panel")
+        self.get_style_context().add_class("halzi-panel")
         self.set_hexpand(True)
         self.set_vexpand(True)
 
-        self.on_status = on_status
         self.on_theme_changed = on_theme_changed
         self._syncing = False
         self._theme_buttons = {}
 
         scroll = gtk.ScrolledWindow()
         scroll.set_policy(gtk.PolicyType.AUTOMATIC, gtk.PolicyType.AUTOMATIC)
-        scroll.get_style_context().add_class("jarvis-scroll")
+        scroll.get_style_context().add_class("halzi-scroll")
         scroll.set_hexpand(True)
         scroll.set_vexpand(True)
 
@@ -47,7 +46,7 @@ class ThemePanel(gtk.Box):
         self.box.set_margin_end(10)
 
         self.add_button = gtk.Button(label="+ theme")
-        self.add_button.get_style_context().add_class("jarvis-add-theme-button")
+        self.add_button.get_style_context().add_class("halzi-add-theme-button")
         self.add_button.connect("clicked", self._on_add_theme_clicked)
         self.box.pack_start(self.add_button, False, False, 0)
 
@@ -60,8 +59,7 @@ class ThemePanel(gtk.Box):
         self.refresh()
 
     def _set_status(self, text: str) -> None:
-        if self.on_status is not None:
-            self.on_status(text)
+        status_state.set_status(text)
 
     def _notify_theme_changed(self, theme: str) -> None:
         if self.on_theme_changed is not None:
@@ -70,9 +68,9 @@ class ThemePanel(gtk.Box):
     def _set_theme_button_active_style(self, button: gtk.ToggleButton) -> None:
         context = button.get_style_context()
         if button.get_active():
-            context.add_class("jarvis-theme-button-on")
+            context.add_class("halzi-theme-button-on")
         else:
-            context.remove_class("jarvis-theme-button-on")
+            context.remove_class("halzi-theme-button-on")
 
     def _sync_buttons_for_active_theme(self, active_theme: str) -> None:
         self._syncing = True
@@ -169,13 +167,13 @@ class ThemePanel(gtk.Box):
             theme_button = gtk.ToggleButton(label=theme)
             theme_button.set_hexpand(True)
             theme_button.set_halign(gtk.Align.FILL)
-            theme_button.get_style_context().add_class("jarvis-theme-button")
+            theme_button.get_style_context().add_class("halzi-theme-button")
             theme_button.connect("toggled", self._on_theme_toggled, theme)
             row.pack_start(theme_button, True, True, 0)
 
             if theme != "just_chat":
                 delete_button = gtk.Button(label="X")
-                delete_button.get_style_context().add_class("jarvis-theme-delete-button")
+                delete_button.get_style_context().add_class("halzi-theme-delete-button")
                 delete_button.connect("clicked", self._on_delete_theme_clicked, theme)
                 row.pack_start(delete_button, False, False, 0)
 
@@ -187,7 +185,6 @@ class ThemePanel(gtk.Box):
 
 
 def build_left_panel(
-    on_status: Optional[Callable[[str], None]] = None,
     on_theme_changed: Optional[Callable[[str], None]] = None,
 ) -> gtk.Widget:
-    return ThemePanel(on_status=on_status, on_theme_changed=on_theme_changed)
+    return ThemePanel(on_theme_changed=on_theme_changed)

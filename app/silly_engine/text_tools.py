@@ -9,6 +9,8 @@ print(f"{c.info}This is an info message{c.end}")
 
 
 from .components.ascii_map_01 import abc_map_01 as abc_map
+import re
+import unicodedata
 
 
 
@@ -84,3 +86,33 @@ class Title:
 
 def print_title(text="no title", abc_map=abc_map, color=None, step=0):
     print(Title(text, abc_map, color, step))
+
+
+_TTS_ALLOWED_PUNCT = set(".,!?;:()'\"-")
+
+
+def sanitize_for_tts(text: str) -> str:
+    """Remove emojis and decorative symbols before sending text to TTS."""
+    if not text:
+        return ""
+
+    normalized = unicodedata.normalize("NFKC", text)
+    cleaned_chars = []
+
+    for char in normalized:
+        if char.isspace():
+            cleaned_chars.append(" ")
+            continue
+
+        category = unicodedata.category(char)
+
+        # Keep letters and numbers (including accented and non-latin letters).
+        if category[0] in {"L", "N"}:
+            cleaned_chars.append(char)
+            continue
+
+        # Keep punctuation that helps speech rhythm and pronunciation.
+        if char in _TTS_ALLOWED_PUNCT:
+            cleaned_chars.append(char)
+
+    return re.sub(r"\s+", " ", "".join(cleaned_chars)).strip()

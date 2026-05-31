@@ -9,9 +9,10 @@ import numpy as np
 import queue
 import time
 from typing import Optional
+import threading
 
-from input_voice import process_audio_buffer
-from settings import SILENCE_DURATION_FOR_VALIDATION, SAMPLE_RATE, BLOCK_SIZE
+from app.vad.input_voice import process_audio_buffer
+from app.settings import SILENCE_DURATION_FOR_VALIDATION, SAMPLE_RATE, BLOCK_SIZE
 
 # =========================
 # CONFIG
@@ -32,6 +33,59 @@ def is_valid_text(text: str) -> bool:
     text_lower = text.lower()
 
     return not any(b in text_lower for b in blacklist)
+
+
+# =========================
+# TTS (speech) activity control
+# =========================
+_tts_lock = threading.Lock()
+_tts_active = False
+
+# Soft pause flag for mic capture. We intentionally avoid stop/start on
+# sounddevice streams to prevent PortAudio thread termination issues.
+_capture_pause_event = threading.Event()
+
+# current audio stream reference (set when AudioStream context is entered)
+_stream_lock = threading.Lock()
+_current_stream = None
+
+
+def set_tts_active(active: bool) -> None:
+    """Set whether TTS is currently playing. Thread-safe."""
+    global _tts_active
+    with _tts_lock:
+        _tts_active = bool(active)
+
+
+def is_tts_active() -> bool:
+    """Return True if TTS is currently playing."""
+    with _tts_lock:
+        return _tts_active
+
+
+def _set_current_stream(stream_instance) -> None:
+    """Internal: set the current AudioStream instance (or None)."""
+    global _current_stream
+    with _stream_lock:
+        _current_stream = stream_instance
+
+
+def pause_audio_capture() -> None:
+    """Soft-pause mic capture without stopping the underlying stream."""
+    _capture_pause_event.set()
+    with _stream_lock:
+        if _current_stream is None:
+            return
+        try:
+            while True:
+                _current_stream.queue.get_nowait()
+        except queue.Empty:
+            pass
+
+
+def resume_audio_capture() -> None:
+    """Resume mic capture after a soft pause."""
+    _capture_pause_event.clear()
 
 
 
@@ -76,6 +130,10 @@ class AudioStream:
     def callback(self, indata, frames, time_info, status):
         if status:
             print(status)
+        if _capture_pause_event.is_set():
+            return
+        if is_tts_active():
+            return
         self.queue.put(indata.copy())
 
     def __enter__(self):
@@ -87,11 +145,19 @@ class AudioStream:
             callback=self.callback
         )
         self.stream.start()
+        try:
+            _set_current_stream(self)
+        except NameError:
+            pass
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stream.stop()
         self.stream.close()
+        try:
+            _set_current_stream(None)
+        except NameError:
+            pass
 
     def read(self, timeout: Optional[float] = None):
         return self.queue.get(timeout=timeout)
@@ -101,12 +167,12 @@ class AudioStream:
 # VAD LOOP
 # =========================
 
-def run_vad(vad_iterator):
-    for _ in iter_voice_prompts(vad_iterator):
+def run_vad(vad_iterator, stop_event: Optional[threading.Event] = None, ready_event: Optional[threading.Event] = None):
+    for _ in iter_voice_prompts(vad_iterator, stop_event=stop_event, ready_event=ready_event):
         pass
 
 
-def iter_voice_prompts(vad_iterator=None, stop_event=None):
+def iter_voice_prompts(vad_iterator=None, stop_event: Optional[threading.Event] = None, ready_event: Optional[threading.Event] = None):
     """Yield validated transcripts from the microphone using VAD + Whisper."""
     if vad_iterator is None:
         vad_iterator = load_vad()
@@ -117,9 +183,20 @@ def iter_voice_prompts(vad_iterator=None, stop_event=None):
     print("🎤 Listening... (Ctrl+C to stop)")
 
     with AudioStream() as stream:
+        # signal that VAD is active and listening
+        if ready_event is not None:
+            try:
+                ready_event.set()
+            except Exception:
+                pass
+
         while True:
             if stop_event is not None and stop_event.is_set():
                 return
+
+            if _capture_pause_event.is_set() or is_tts_active():
+                time.sleep(0.05)
+                continue
 
             try:
                 chunk = stream.read(timeout=0.1)
@@ -165,6 +242,31 @@ def iter_voice_prompts(vad_iterator=None, stop_event=None):
 def main():
     vad_iterator = load_vad()
     run_vad(vad_iterator)
+
+
+def start_vad_thread(timeout: float = 30.0):
+    """Start VAD in a daemon thread and wait until it's active.
+
+    Returns a tuple: (thread, ready_event, stop_event, ready_flag)
+    """
+    ready_event = threading.Event()
+    stop_event = threading.Event()
+
+    def target():
+        try:
+            vad_iterator = load_vad()
+            run_vad(vad_iterator, stop_event=stop_event, ready_event=ready_event)
+        except Exception as exc:
+            # If load_vad or run_vad fails, ensure ready_event not left unset
+            if not ready_event.is_set():
+                ready_event.set()
+            raise
+
+    t = threading.Thread(target=target, daemon=True, name="vad-thread")
+    t.start()
+
+    ready = ready_event.wait(timeout=timeout)
+    return t, ready_event, stop_event, ready
 
 
 if __name__ == "__main__":

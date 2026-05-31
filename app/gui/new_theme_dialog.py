@@ -11,7 +11,7 @@ class NewThemeDialog(gtk.Dialog):
 
 		self.add_button("Cancel", gtk.ResponseType.CANCEL)
 		create_button = self.add_button("Create", gtk.ResponseType.OK)
-		create_button.get_style_context().add_class("jarvis-create-theme-button")
+		create_button.get_style_context().add_class("halzi-create-theme-button")
 
 		box = self.get_content_area()
 		box.set_spacing(8)

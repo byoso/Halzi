@@ -264,22 +264,22 @@
   letter-spacing: 2px;
 }
 
-.jarvis-root {
+.halzi-root {
   background: linear-gradient(to bottom, #f7fbf7 0%, #eef6f0 100%);
 }
 
-.jarvis-panel {
+.halzi-panel {
   background-color: rgba(255, 255, 255, 0.88);
   border: 1px solid #cddfd2;
   border-radius: 10px;
   padding: 6px;
 }
 
-.jarvis-scroll {
+.halzi-scroll {
   background-color: transparent;
 }
 
-.jarvis-placeholder-btn {
+.halzi-placeholder-btn {
   background-image: none;
   background-color: #19944b;
   color: #ffffff;
@@ -289,47 +289,47 @@
   font-weight: 700;
 }
 
-.jarvis-placeholder-btn:hover {
+.halzi-placeholder-btn:hover {
   background-color: #1daf57;
 }
 
-.jarvis-output {
+.halzi-output {
   background-color: rgba(255, 255, 255, 0.78);
   border: 1px solid #d8e6dc;
   border-radius: 8px;
   padding: 4px;
 }
 
-.jarvis-output-text {
+.halzi-output-text {
   color: #153022;
   font-size: 14px;
 }
 
-.jarvis-input-area {
+.halzi-input-area {
   background-color: rgba(245, 250, 247, 0.9);
   border-top: 1px solid #cddfd2;
 }
 
-.jarvis-input-label {
+.halzi-input-label {
   color: #2e4a38;
   font-weight: 700;
 }
 
-.jarvis-input-text {
+.halzi-input-text {
   border: 1px solid #b8d1c0;
   border-radius: 8px;
   background-color: #ffffff;
   color: #153022;
 }
 
-.jarvis-option-row {
+.halzi-option-row {
   background-color: rgba(223, 233, 226, 0.7);
   border: 1px solid #c8d6cb;
   border-radius: 8px;
   padding: 8px;
 }
 
-.jarvis-header-toggle {
+.halzi-header-toggle {
   background-image: none;
   border: 2px solid #cddfd2;
   border-radius: 8px;
@@ -337,17 +337,17 @@
   transition: none;
 }
 
-.jarvis-header-toggle:hover {
+.halzi-header-toggle:hover {
   border-color: #bfcfc4;
 }
 
-.jarvis-header-toggle-on,
-.jarvis-header-toggle-on:hover,
-.jarvis-header-toggle-on:checked {
+.halzi-header-toggle-on,
+.halzi-header-toggle-on:hover,
+.halzi-header-toggle-on:checked {
   border: 2px solid #19944b;
 }
 
-.jarvis-memorize-button {
+.halzi-memorize-button {
   background-image: none;
   background-color: #4a7fa5;
   color: #ffffff;
@@ -357,23 +357,23 @@
   font-weight: 700;
 }
 
-.jarvis-memorize-button:hover {
+.halzi-memorize-button:hover {
   background-color: #5590b8;
 }
 
-.jarvis-status-bar {
+.halzi-status-bar {
   background-color: #dfe9e2;
   border-top: 1px solid #c8d6cb;
 }
 
-.jarvis-status-label {
+.halzi-status-label {
   color: #2e4a38;
   font-size: 12px;
   font-weight: 600;
 }
 
-.jarvis-add-theme-button,
-.jarvis-create-theme-button {
+.halzi-add-theme-button,
+.halzi-create-theme-button {
   background-image: none;
   background-color: #4a7fa5;
   color: #ffffff;
@@ -383,12 +383,12 @@
   font-weight: 700;
 }
 
-.jarvis-add-theme-button:hover,
-.jarvis-create-theme-button:hover {
+.halzi-add-theme-button:hover,
+.halzi-create-theme-button:hover {
   background-color: #5590b8;
 }
 
-.jarvis-theme-button {
+.halzi-theme-button {
   background-image: none;
   background-color: #ffffff;
   border: 2px solid #cddfd2;
@@ -397,17 +397,17 @@
   padding: 6px 10px;
 }
 
-.jarvis-theme-button:hover {
+.halzi-theme-button:hover {
   border-color: #bfcfc4;
 }
 
-.jarvis-theme-button-on,
-.jarvis-theme-button-on:hover,
-.jarvis-theme-button-on:checked {
+.halzi-theme-button-on,
+.halzi-theme-button-on:hover,
+.halzi-theme-button-on:checked {
   border: 2px solid #19944b;
 }
 
-.jarvis-theme-delete-button {
+.halzi-theme-delete-button {
   background-image: none;
   background-color: #cc2222;
   color: #ffffff;
@@ -417,6 +417,6 @@
   font-weight: 700;
 }
 
-.jarvis-theme-delete-button:hover {
+.halzi-theme-delete-button:hover {
   background-color: #e02828;
 }

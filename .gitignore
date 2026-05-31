@@ -3,3 +3,6 @@ __pycache__/
 xxx-*
 xxx-*/
 mem_*.md
+*.wav
+# Piper ONNX models
+*.onnx*
