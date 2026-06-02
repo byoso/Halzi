@@ -420,3 +420,59 @@
 .halzi-theme-delete-button:hover {
   background-color: #e02828;
 }
+
+.halzi-stack-switcher {
+  padding-left: 4px;
+}
+
+.halzi-stack-switcher-button {
+  background-image: none;
+  border: 2px solid #cddfd2;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.halzi-stack-switcher-button:hover {
+  border-color: #bfcfc4;
+}
+
+.halzi-settings-page {
+  background-color: transparent;
+}
+
+.halzi-settings-title {
+  color: #153022;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.halzi-settings-field-label {
+  color: #2f343a;
+}
+
+.halzi-settings-button {
+  background-image: none;
+  background-color: #ffffff;
+  color: #153022;
+  border: 1px solid #cddfd2;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.halzi-settings-button:hover {
+  border-color: #bfcfc4;
+}
+
+.halzi-settings-button-primary {
+  background-image: none;
+  background-color: #19944b;
+  color: #ffffff;
+  border: 1px solid #0e6f34;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
+.halzi-settings-button-primary:hover {
+  background-color: #1daf57;
+}

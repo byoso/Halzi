@@ -4,24 +4,12 @@ from .relations.otm import Otm
 from .relations.mtm import Mtm
 from .relations.oto import Oto
 from .relations.mto import Mto
+from .relation_views import QList, QRef
 from .tools import SillyDbError
 
 
 _MISSING = object()
-
-
-class _RelationMutator:
-    def __init__(self, accessor, relation_name):
-        self._accessor = accessor
-        self._relation_name = relation_name
-
-    def add(self, value):
-        self._accessor._add_relation(self._relation_name, value)
-        return self
-
-    def remove(self, value=None):
-        self._accessor._remove_relation(self._relation_name, value)
-        return self
+AccessorAttrValue = QRef | QList | object
 
 
 class Accessor:
@@ -43,12 +31,18 @@ class Accessor:
 
         return descriptor.__get__(model_instance, self._model_cls)
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> AccessorAttrValue:
         """
-        For relation fields:
-        - Otm, Mtm: always returns a list of QItem (never None)
-        - Oto, Mto: returns a QItem or None
-        For normal fields: returns the value or None.
+        Resolve a dynamic accessor attribute.
+
+        Returns:
+        - QList for OTM/MTM relations.
+        - QRef for OTO/MTO relations.
+        - A scalar field value from row data.
+        - A computed @property value from the model class.
+
+        Raises:
+        - SillyDbError when the attribute does not exist.
         """
         aliases = self._model_cls.relation_aliases()
         relation_fields = self._model_cls.get_relations()
@@ -56,63 +50,9 @@ class Accessor:
 
         if field_name in relation_fields:
             rel_obj = relation_fields[field_name]
-
-            # -------------------------
-            # Many-to-Many special case
-            # -------------------------
-            if isinstance(rel_obj, Mtm):
-
-                source_id = self._data.get("_id")
-                if source_id is None:
-                    return []
-
-                source_table = self._db.table_name_for_model(self._model_cls)
-                if not source_table:
-                    raise SillyDbError(f"Unknown source table for model {self._model_cls.__name__}")
-
-                self._db.ensure_mtm_table(source_table, rel_obj)
-
-                cursor = self._db.connector.execute(
-                    f"""
-                    SELECT {rel_obj.target_field}
-                    FROM {rel_obj.through}
-                    WHERE {rel_obj.source_field}=?
-                    """,
-                    (source_id,),
-                )
-
-                ids = [row[0] for row in cursor.fetchall()]
-
-                if not ids:
-                    return []
-
-                target_table = self._db.table(rel_obj.target)
-
-                return [
-                    target_table.filter_first(_id=i)
-                    for i in ids
-                ]
-
-            # -------------------------
-            # Normal relations
-            # -------------------------
-            if isinstance(rel_obj, Otm):
-                source_id = self._data.get("_id")
-                if source_id is None:
-                    return []
-                source_table = self._db.table_name_for_model(self._model_cls)
-                if not source_table:
-                    raise SillyDbError(f"Unknown source table for model {self._model_cls.__name__}")
-                return rel_obj.resolve(self._db, source_id, source_table=source_table)
-
-            value = self._data.get(field_name)
-
-            if value is None:
-                if isinstance(rel_obj, (Otm, Mtm)):
-                    return []
-                return None
-
-            return rel_obj.resolve(self._db, value)
+            if isinstance(rel_obj, (Otm, Mtm)):
+                return QList(self, field_name, rel_obj)
+            return QRef(self, field_name, rel_obj)
 
         # fallback to regular field
         if name in self._data:
@@ -175,8 +115,49 @@ class Accessor:
 
         raise SillyDbError("relation must be a relation name or a declared relation descriptor")
 
-    def relation(self, relation_name):
-        return _RelationMutator(self, relation_name)
+    def _read_relation_value(self, field_name: str, rel_obj):
+        if isinstance(rel_obj, Mtm):
+            source_id = self._data.get("_id")
+            if source_id is None:
+                return []
+
+            source_table = self._db.table_name_for_model(self._model_cls)
+            if not source_table:
+                raise SillyDbError(f"Unknown source table for model {self._model_cls.__name__}")
+
+            self._db.ensure_mtm_table(source_table, rel_obj)
+
+            cursor = self._db.connector.execute(
+                f"""
+                SELECT {rel_obj.target_field}
+                FROM {rel_obj.through}
+                WHERE {rel_obj.source_field}=?
+                """,
+                (source_id,),
+            )
+
+            ids = [row[0] for row in cursor.fetchall()]
+            if not ids:
+                return []
+
+            target_table = self._db.table(rel_obj.target)
+            return [target_table.filter_first(_id=i) for i in ids]
+
+        if isinstance(rel_obj, Otm):
+            source_id = self._data.get("_id")
+            if source_id is None:
+                return []
+            source_table = self._db.table_name_for_model(self._model_cls)
+            if not source_table:
+                raise SillyDbError(f"Unknown source table for model {self._model_cls.__name__}")
+            return rel_obj.resolve(self._db, source_id, source_table=source_table)
+
+        value = self._data.get(field_name)
+        if value is None:
+            if isinstance(rel_obj, (Otm, Mtm)):
+                return []
+            return None
+        return rel_obj.resolve(self._db, value)
 
     def _add_relation(self, relation, value):
         field_name, rel_obj = self._resolve_relation_field(relation)
@@ -184,7 +165,8 @@ class Accessor:
 
         if isinstance(rel_obj, Mtm):
             related_id = self._coerce_related_id(value)
-            current_items = self.__getattr__(field_name)
+            current_items_raw = self._read_relation_value(field_name, rel_obj)
+            current_items = current_items_raw if isinstance(current_items_raw, list) else []
             current_ids = [item._data.get("_id") for item in current_items]
             if related_id not in current_ids:
                 self._source_table_obj().update(source_id, **{field_name: current_ids + [related_id]})
@@ -212,7 +194,8 @@ class Accessor:
 
         if isinstance(rel_obj, Mtm):
             related_id = self._coerce_related_id(value)
-            current_items = self.__getattr__(field_name)
+            current_items_raw = self._read_relation_value(field_name, rel_obj)
+            current_items = current_items_raw if isinstance(current_items_raw, list) else []
             current_ids = [item._data.get("_id") for item in current_items]
             next_ids = [rid for rid in current_ids if rid != related_id]
             self._source_table_obj().update(source_id, **{field_name: next_ids})
@@ -262,7 +245,9 @@ class Accessor:
             fk_field = rel_obj.resolve_fk_field(self._db, source_table)
 
             if value is None:
-                for child in self.__getattr__(field_name):
+                current_children_raw = self._read_relation_value(field_name, rel_obj)
+                current_children = current_children_raw if isinstance(current_children_raw, list) else []
+                for child in current_children:
                     target_table.update(child._data.get("_id"), **{fk_field: None})
             else:
                 related_id = self._coerce_related_id(value)

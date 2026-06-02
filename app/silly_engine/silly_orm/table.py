@@ -261,14 +261,16 @@ class Table:
                 if key not in payload:
                     payload[key] = value
 
-        # Apply auto_now_add on insert
+        # Apply auto_now_add fields on insert.
         if is_insert and hasattr(meta, 'auto_now_add') and meta.auto_now_add:
-            if '_created_at' not in payload:
-                payload['_created_at'] = now_ts
+            for field_name in meta.auto_now_add:
+                if field_name not in payload:
+                    payload[field_name] = now_ts
 
-        # Apply auto_now on insert and update
+        # Apply auto_now fields on insert and update.
         if hasattr(meta, 'auto_now') and meta.auto_now:
-            payload['_updated_at'] = now_ts
+            for field_name in meta.auto_now:
+                payload[field_name] = now_ts
 
         # Apply ttl
         if hasattr(meta, 'ttl') and meta.ttl:

@@ -14,8 +14,10 @@ from .tools import SillyDbError
 
 logger = logging.getLogger("SillyDb")
 
-def version_tuple(version_str: str) -> tuple[int, ...]:
+def version_tuple(version_str: str | None) -> tuple[int, ...]:
     """Convert a version string like '1.2.3' to a tuple (1, 2, 3) for comparison."""
+    if version_str is None:
+        return (0, 0, 0)
     try:
         return tuple(int(part) for part in version_str.split('.'))
     except ValueError:
@@ -82,12 +84,8 @@ def generate_create_table_sql(name: str, model: type, connector=None) -> str:
     if "_id" not in hints:
         raise SillyDbError(f"Dataclass {model.__name__} must have a _id field")
 
-    # Add auto timestamp fields based on Meta config
+    # Add Meta-driven auxiliary fields.
     meta = model.get_meta()
-    if hasattr(meta, 'auto_now_add') and meta.auto_now_add:
-        fields.append("_created_at BIGINT" if is_postgres else "_created_at INTEGER")
-    if hasattr(meta, 'auto_now') and meta.auto_now:
-        fields.append("_updated_at BIGINT" if is_postgres else "_updated_at INTEGER")
     if hasattr(meta, 'ttl') and meta.ttl:
         fields.append("_expires_at BIGINT" if is_postgres else "_expires_at INTEGER")
 

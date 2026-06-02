@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import List, Tuple
 import threading
 
-from app.settings import PIPER_VOICE, VOICE_LANGUAGE, SPEAKER_ID
+from app.database import get_settings
+
+PIPER_VOICE = get_settings().piper_voice
+VOICE_LANGUAGE = get_settings().voice_language
+SPEAKER_ID = get_settings().piper_speaker_id
 
 BASE_DIR = Path(__file__).parent
 

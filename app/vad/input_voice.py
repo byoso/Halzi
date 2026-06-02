@@ -3,7 +3,16 @@ import tempfile
 import wave
 from faster_whisper import WhisperModel
 
-from app.settings import LANGUAGE, WHISPER_MODEL_SIZE, DEVICE, COMPUTE_TYPE
+from app.database import get_settings
+
+settings = get_settings()
+
+LANGUAGE = settings.language
+WHISPER_MODEL_SIZE = settings.whisper_model_size
+DEVICE = settings.device
+COMPUTE_TYPE = settings.compute_type
+
+
 
 
 # =========================

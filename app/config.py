@@ -1,0 +1,6 @@
+
+LOG_LEVEL = "DEBUG"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+DEV_MODE = False  # Not used
+
+APP_NAME = "Halzimir"

@@ -1,21 +1,15 @@
 from dataclasses import dataclass
 
-from app.silly_engine.silly_orm import (
-    Model,
-    Mto,
-    Mtm,
-    Otm,
-    Oto
-)
-
+from app.silly_engine.silly_orm import Model
 
 
 @dataclass
 class SettingsModel(Model):
     voice_gender: str = "f"  # m, f
-    voice_language: str = "en"  # fr, en
+    voice_language: str = "fr"  # fr, en
 
     # Ollama
+    # ollama_model: str = ""
     # OLLAMA_MODEL = "mistral"  # fast but good at code only, too dumb for just talking
     # OLLAMA_MODEL = "qwen3:14b"  # way too heavy for me !
     # OLLAMA_MODEL = "qwen3:8b"  # not too bad but still a bit slow on my config
@@ -32,7 +26,7 @@ class SettingsModel(Model):
 
     # WHISPER CONFIG
 
-    language: str = "en"  # en, fr
+    language: str = "fr"  # en, fr
     whisper_model_size: str = "small"  # tiny, base, small, medium, large
     device: str = "cpu"
     compute_type: str = "int8"
@@ -47,3 +41,12 @@ class SettingsModel(Model):
         if self.voice_language == "en":
             return "voices/en/en_GB-semaine-medium.onnx"
         raise ValueError(f"Unsupported voice language: {self.voice_language}")
+
+    @property
+    def piper_speaker_id(self) -> str:
+        if self.voice_language in ["fr", "en"]:
+            if self.voice_gender == "f":
+                return "0"
+            if self.voice_gender == "m":
+                return "1"
+        raise ValueError(f"Unsupported voice language or gender: {self.voice_language}, {self.voice_gender}")

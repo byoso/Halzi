@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 from pathlib import Path
 import subprocess
 
@@ -6,7 +6,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk as gtk
 
-from app.settings import APP_NAME
+from app.config import APP_NAME
 
 def _sync_toggle_style(button: gtk.ToggleButton) -> None:
     context = button.get_style_context()
@@ -51,7 +51,10 @@ def _build_folder_button() -> gtk.Button:
     return button
 
 
-def build_headerbar(title: str = f"{APP_NAME} GUI") -> Tuple[gtk.HeaderBar, gtk.Button, gtk.ToggleButton, gtk.ToggleButton]:
+def build_headerbar(
+    title: str = f"{APP_NAME} GUI",
+    stack_switcher: Optional[gtk.Widget] = None,
+) -> Tuple[gtk.HeaderBar, gtk.Button, gtk.ToggleButton, gtk.ToggleButton]:
     header = gtk.HeaderBar()
     header.set_show_close_button(True)
     header.props.title = title
@@ -61,6 +64,8 @@ def build_headerbar(title: str = f"{APP_NAME} GUI") -> Tuple[gtk.HeaderBar, gtk.
     speaker_button = _build_toggle_button("audio-volume-high-symbolic")
 
     header.pack_start(folder_button)
+    if stack_switcher is not None:
+        header.pack_start(stack_switcher)
     header.pack_end(speaker_button)
     header.pack_end(mic_button)
 

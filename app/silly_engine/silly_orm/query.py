@@ -19,18 +19,18 @@ class Pagination:
     page_size: int
     total: int
 
-    def dict(self):
+    def to_dict(self):
         """Convert pagination to dictionary."""
         return {
-            "data": [item.dict() if hasattr(item, "dict") else item for item in self.data],
+            "data": [item.to_dict() if hasattr(item, "to_dict") else item for item in self.data],
             "page": self.page,
             "page_size": self.page_size,
             "total": self.total,
         }
 
-    def json(self):
+    def to_json(self):
         """Convert pagination to JSON string."""
-        return json.dumps(self.dict(), default=str)
+        return json.dumps(self.to_dict(), default=str)
 
 
 class Query:
@@ -324,13 +324,13 @@ class Query:
 
         return Pagination(data=items, page=page, page_size=page_size, total=total)
 
-    def dict(self):
+    def to_dict(self):
         """Return results as list of dicts instead of QItems."""
-        return [item.dict() if hasattr(item, "dict") else item for item in self.all()]
+        return [item.to_dict() if hasattr(item, "to_dict") else item for item in self.all()]
 
-    def json(self):
+    def to_json(self):
         """Return results as JSON string."""
-        return json.dumps(self.dict(), default=str)
+        return json.dumps(self.to_dict(), default=str)
 
     def count(self):
         """Count matching records without fetching them."""

@@ -50,7 +50,7 @@ class Model:
         for f in fields(cls):
             value = getattr(cls, f.name, None)
 
-            if hasattr(value, "_is_relation"):
+            if hasattr(value, "_is_relation") and value is not None:
                 value.name = f.name
                 rels[f.name] = value
 

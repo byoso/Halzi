@@ -1,50 +1,37 @@
+from dataclasses import fields
 
-LOG_LEVEL = "DEBUG"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-
-
-APP_NAME = "Halzimir"
-VOICE_GENDER = "f"  # m, f
-VOICE_LANGUAGE = "fr"  # fr, en
-
-# Ollama
-# OLLAMA_MODEL = "mistral"  # fast but good at code only, too dumb for just talking
-# OLLAMA_MODEL = "qwen3:14b"  # way too heavy for me !
-# OLLAMA_MODEL = "qwen3:8b"  # not too bad but still a bit slow on my config
-OLLAMA_MODEL = "llama3.1:8b"  # not too slow, not to dumb, but not too smart neither
-
-OLLAMA_HOST = "127.0.0.1"
-OLLAMA_PORT = 11434
-OLLAMA_TIMEOUT = 1.0
-
-# VAD
-SILENCE_DURATION_FOR_VALIDATION=1000
-SAMPLE_RATE = 16000
-BLOCK_SIZE = 512  # ~30 ms
-
-# WHISPER CONFIG
-
-LANGUAGE = "fr"  # en, fr
-WHISPER_MODEL_SIZE="small"  # tiny, base, small, medium, large
-DEVICE="cpu"
-COMPUTE_TYPE="int8"
+from app.database.db import Settings
+from app.database.models.models_settings import SettingsModel
 
 
-# ==========================
-# TEXT TO SPEECH CONFIG
-# ==========================
+ALLOWED_SETTINGS_KEYS = {
+    field.name
+    for field in fields(SettingsModel)
+    if field.name != "_id" and not field.name.startswith("_")
+}
 
 
-# Piper
-if VOICE_LANGUAGE == "fr":
-    PIPER_VOICE = "voices/fr/fr_FR-upmc-medium.onnx"
-    if VOICE_GENDER == "f":
-        SPEAKER_ID = "0"
-    if VOICE_GENDER == "m":
-        SPEAKER_ID = "1"
+def get_settings():
+    settings = Settings.first()
+    if settings is None:
+        raise ValueError("Settings not found in database")
+    return settings.to_model()
 
-if VOICE_LANGUAGE == "en":
-    PIPER_VOICE = "voices/en/en_GB-semaine-medium.onnx"
-    if VOICE_GENDER == "f":
-        SPEAKER_ID = "0"
-    if VOICE_GENDER == "m":
-        SPEAKER_ID = "1"
+
+def update_settings(**kwargs) -> None:
+    settings = Settings.first()
+    if settings is None:
+        raise ValueError("Settings not found in database")
+
+    unknown_keys = sorted(key for key in kwargs if key not in ALLOWED_SETTINGS_KEYS)
+    if unknown_keys:
+        raise ValueError(f"Unsupported settings keys: {', '.join(unknown_keys)}")
+
+    settings_id = settings.to_dict().get("_id")
+    if not settings_id:
+        raise ValueError("Settings id not found in database")
+
+    if not kwargs:
+        return
+
+    Settings.update(_id=settings_id, **kwargs)

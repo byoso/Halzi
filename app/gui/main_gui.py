@@ -10,8 +10,10 @@ from .headerbar import build_headerbar
 from .left_panel import build_left_panel
 from .center_panel import build_center_panel, CenterPanel
 from .right_panel import build_right_panel
+from .stack_switcher import StackSwitcher
+from .settings_gui.main_settings import build_settings_page
 
-from app.settings import APP_NAME
+from app.config import APP_NAME
 from app import status_state
 
 class MainWindow(gtk.Window):
@@ -22,7 +24,14 @@ class MainWindow(gtk.Window):
         self.set_position(gtk.WindowPosition.CENTER)
         self.connect("destroy", self._on_destroy)
 
-        header, self.folder_button, self.mic_button, self.speaker_button = build_headerbar(f"{APP_NAME} GUI")
+        self.stack_switcher = StackSwitcher(
+            on_show_main=self._show_main_page,
+            on_show_settings=self._show_settings_page,
+        )
+        header, self.folder_button, self.mic_button, self.speaker_button = build_headerbar(
+            f"{APP_NAME} GUI",
+            stack_switcher=self.stack_switcher,
+        )
         self.set_titlebar(header)
 
         load_css()
@@ -30,6 +39,33 @@ class MainWindow(gtk.Window):
         root = gtk.Box(orientation=gtk.Orientation.VERTICAL, spacing=0)
         root.get_style_context().add_class("halzi-root")
         self.add(root)
+
+        self.page_stack = gtk.Stack()
+        self.page_stack.set_hexpand(True)
+        self.page_stack.set_vexpand(True)
+        self.page_stack.set_transition_type(gtk.StackTransitionType.CROSSFADE)
+        self.page_stack.set_transition_duration(150)
+
+        main_page = self._build_main_page()
+        settings_page = build_settings_page()
+
+        self.page_stack.add_named(main_page, "main")
+        self.page_stack.add_named(settings_page, "settings")
+        self.page_stack.set_visible_child_name("main")
+
+        root.pack_start(self.page_stack, True, True, 0)
+        self.stack_switcher.set_active_page("main")
+
+        self.mic_button.connect("toggled", self._on_mic_toggled)
+
+        def _status_listener(text: str) -> None:
+            GLib.idle_add(self.status_label.set_text, text)
+
+        self._status_listener = _status_listener
+        status_state.subscribe(self._status_listener, emit_current=True)
+
+    def _build_main_page(self) -> gtk.Box:
+        page = gtk.Box(orientation=gtk.Orientation.VERTICAL, spacing=0)
 
         content = gtk.Grid()
         content.set_column_homogeneous(False)
@@ -40,7 +76,7 @@ class MainWindow(gtk.Window):
         content.set_margin_bottom(10)
         content.set_margin_start(10)
         content.set_margin_end(10)
-        root.pack_start(content, True, True, 0)
+        page.pack_start(content, True, True, 0)
 
         self.center_panel = build_center_panel(
             on_voice_stopped=self._sync_mic_toggle_off,
@@ -67,8 +103,6 @@ class MainWindow(gtk.Window):
         content.attach(self.center_panel, 1, 0, 1, 1)
         content.attach(right_panel, 2, 0, 1, 1)
 
-        self.mic_button.connect("toggled", self._on_mic_toggled)
-
         status_bar = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=0)
         status_bar.set_size_request(-1, 22)
         status_bar.get_style_context().add_class("halzi-status-bar")
@@ -81,13 +115,16 @@ class MainWindow(gtk.Window):
         self.status_label.get_style_context().add_class("halzi-status-label")
 
         status_bar.pack_start(self.status_label, True, True, 0)
-        root.pack_start(status_bar, False, True, 0)
+        page.pack_start(status_bar, False, True, 0)
+        return page
 
-        def _status_listener(text: str) -> None:
-            GLib.idle_add(self.status_label.set_text, text)
+    def _show_main_page(self) -> None:
+        self.page_stack.set_visible_child_name("main")
+        self.stack_switcher.set_active_page("main")
 
-        self._status_listener = _status_listener
-        status_state.subscribe(self._status_listener, emit_current=True)
+    def _show_settings_page(self) -> None:
+        self.page_stack.set_visible_child_name("settings")
+        self.stack_switcher.set_active_page("settings")
 
     def set_status(self, text: str) -> None:
         status_state.set_status(text)

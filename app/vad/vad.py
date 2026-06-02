@@ -12,7 +12,12 @@ from typing import Optional
 import threading
 
 from app.vad.input_voice import process_audio_buffer
-from app.settings import SILENCE_DURATION_FOR_VALIDATION, SAMPLE_RATE, BLOCK_SIZE
+from app.database import get_settings
+
+settings = get_settings()
+SILENCE_DURATION_FOR_VALIDATION = settings.silence_duration_for_validation
+SAMPLE_RATE = settings.sample_rate
+BLOCK_SIZE = settings.block_size
 
 # =========================
 # CONFIG

@@ -11,12 +11,14 @@ import socket
 import subprocess
 import time
 
-from app.settings import (
-    OLLAMA_MODEL,
-    OLLAMA_HOST,
-    OLLAMA_PORT,
-    OLLAMA_TIMEOUT,
-    )
+from app.database import get_settings
+
+settings = get_settings()
+
+OLLAMA_MODEL = settings.ollama_model
+OLLAMA_HOST = settings.ollama_host
+OLLAMA_PORT = settings.ollama_port
+OLLAMA_TIMEOUT = settings.ollama_timeout
 
 BASE_DIR = Path(__file__).parent
 MEMORY_DIR = BASE_DIR / "memory"
