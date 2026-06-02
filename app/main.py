@@ -15,19 +15,18 @@ if str(PARENT) not in sys.path:
 
 from app.ollama.core import ensure_ollama_running
 from app.gui.error_dialogue import show_error_dialog
-import sys
-
 from app.gui.main_gui import MainWindow
+from app.database.db_models import init_db
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk as gtk
 
 
-
-
 if __name__ == "__main__":
     try:
-
+        # database initialization (creates tables and default settings if not exist)
+        init_db()
         # Ensure Ollama model/server is running before starting voice activity detection
         ok = ensure_ollama_running()
         if not ok:

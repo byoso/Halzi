@@ -11,7 +11,12 @@ import socket
 import subprocess
 import time
 
-from app.settings import OLLAMA_MODEL
+from app.settings import (
+    OLLAMA_MODEL,
+    OLLAMA_HOST,
+    OLLAMA_PORT,
+    OLLAMA_TIMEOUT,
+    )
 
 BASE_DIR = Path(__file__).parent
 MEMORY_DIR = BASE_DIR / "memory"
@@ -179,7 +184,7 @@ def build_input_for_api(prompt: str) -> str:
     return "\n".join(parts)
 
 
-def _is_ollama_port_open(host: str = "127.0.0.1", port: int = 11434, timeout: float = 1.0) -> bool:
+def _is_ollama_port_open(host: str = OLLAMA_HOST, port: int = OLLAMA_PORT, timeout: float = OLLAMA_TIMEOUT) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
@@ -233,7 +238,7 @@ def ensure_ollama_running(model: str = OLLAMA_MODEL, timeout: int = 30, poll_int
     # timed out
     if lf:
         lf.close()
-    print(f"Timed out waiting for ollama on port 11434 after {timeout} seconds. See {log_file} for output.")
+    print(f"Timed out waiting for ollama on port {OLLAMA_PORT} after {OLLAMA_TIMEOUT} seconds. See {log_file} for output.")
     return False
 
 def process_prompt(
@@ -247,7 +252,7 @@ def process_prompt(
         "prompt": build_input_for_api(prompt),
         "stream": True,
     }
-    res = requests.post("http://localhost:11434/api/generate", json=payload, stream=True)
+    res = requests.post(f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/generate", json=payload, stream=True)
 
     output = ""
     for raw in res.iter_lines(decode_unicode=True):

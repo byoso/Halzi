@@ -1,8 +1,17 @@
 __pycache__/
 .venv/
+# dev tools
 xxx-*
 xxx-*/
+
+# memories
 mem_*.md
+
+# Piper (formerly used a .wav format, not needed anymore)
 *.wav
+
 # Piper ONNX models
 *.onnx*
+
+# database
+*.sqlite3
