@@ -10,6 +10,7 @@ from typing import Callable, Optional, List, Tuple, Any
 import traceback
 from app import status_state
 from app.silly_engine.text_tools import sanitize_for_tts
+from app.gui.markdown_render import markdown_to_pango
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OLLAMA_DIR = PROJECT_ROOT / "ollama"
@@ -90,6 +91,9 @@ class CenterPanel(gtk.Box):
         self._selection_auto_scroll_speed = 18
         self._selection_edge_margin = 42
         self._follow_stream_bottom = False
+        self._markdown_mode = False
+        self._markdown_toggle_button: Optional[gtk.ToggleButton] = None
+        self._output_label_meta: dict = {}
 
         split = gtk.Paned.new(gtk.Orientation.VERTICAL)
         split.set_hexpand(True)
@@ -140,6 +144,17 @@ class CenterPanel(gtk.Box):
         mini_button.set_active(False)
         self._mini_mic_button = mini_button
 
+        markdown_button = gtk.ToggleButton(label="Text")
+        markdown_button.set_relief(gtk.ReliefStyle.NORMAL)
+        markdown_button.set_focus_on_click(False)
+        markdown_button.get_style_context().add_class("halzi-header-toggle")
+        markdown_button.connect("toggled", self._on_markdown_mode_toggled)
+        self._markdown_toggle_button = markdown_button
+
+        controls_box = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=6)
+        controls_box.pack_start(markdown_button, False, False, 0)
+        controls_box.pack_start(mini_button, False, False, 0)
+
         self.input_view = gtk.TextView()
         self.input_view.set_wrap_mode(gtk.WrapMode.WORD_CHAR)
         self.input_view.get_style_context().add_class("halzi-input-text")
@@ -151,7 +166,7 @@ class CenterPanel(gtk.Box):
         input_scroll.add(self.input_view)
 
         label_row.pack_start(input_label, True, True, 0)
-        label_row.pack_end(mini_button, False, False, 0)
+        label_row.pack_end(controls_box, False, False, 0)
         bottom_box.pack_start(label_row, False, False, 0)
         bottom_box.pack_start(input_scroll, True, True, 0)
 
@@ -183,6 +198,8 @@ class CenterPanel(gtk.Box):
     def clear_conversation_view(self) -> None:
         for child in self.top_box.get_children():
             self.top_box.remove(child)
+
+        self._output_label_meta.clear()
 
         self.output_hint = gtk.Label(label="Scrollable area for LLM responses")
         self.output_hint.set_xalign(0.0)
@@ -218,6 +235,7 @@ class CenterPanel(gtk.Box):
         label.set_xalign(1.0 if is_user else 0.0)
         label.set_halign(gtk.Align.END if is_user else gtk.Align.START)
         label.get_style_context().add_class("halzi-output-text")
+        self._register_output_label(label, is_user=is_user, raw_text=text)
 
         self._wire_output_widget(row)
         self._wire_output_widget(label)
@@ -228,6 +246,45 @@ class CenterPanel(gtk.Box):
             row.pack_start(label, False, False, 6)
 
         return row, label
+
+    def _on_markdown_mode_toggled(self, button: gtk.ToggleButton) -> None:
+        self._markdown_mode = bool(button.get_active())
+        button.set_label("Markdown" if self._markdown_mode else "Text")
+        self._refresh_output_rendering()
+
+    def _register_output_label(self, label: gtk.Label, is_user: bool, raw_text: str) -> None:
+        self._output_label_meta[label] = {
+            "is_user": is_user,
+            "raw_text": raw_text,
+        }
+        self._render_output_label(label)
+
+    def _set_output_label_text(self, label: gtk.Label, raw_text: str) -> None:
+        meta = self._output_label_meta.get(label)
+        if meta is None:
+            return
+
+        meta["raw_text"] = raw_text
+        self._render_output_label(label)
+
+    def _refresh_output_rendering(self) -> None:
+        for label in self._iter_output_labels():
+            self._render_output_label(label)
+
+    def _render_output_label(self, label: gtk.Label) -> None:
+        meta = self._output_label_meta.get(label)
+        if meta is None:
+            return
+
+        raw_text = str(meta.get("raw_text", ""))
+        is_user = bool(meta.get("is_user", False))
+
+        if self._markdown_mode and (not is_user):
+            label.set_use_markup(True)
+            label.set_markup(markdown_to_pango(raw_text))
+        else:
+            label.set_use_markup(False)
+            label.set_text(raw_text)
 
     def _selection_auto_scroll_stop(self) -> None:
         self._selection_auto_scroll_direction = 0
@@ -478,7 +535,7 @@ class CenterPanel(gtk.Box):
         if current_len < target_len:
             next_len = min(target_len, current_len + self._typing_step_chars)
             self._streaming_display_text = self._streaming_target_text[:next_len]
-            label.set_text(self._streaming_display_text)
+            self._set_output_label_text(label, self._streaming_display_text)
             if self._follow_stream_bottom:
                 GLib.idle_add(self.scroll_to_bottom)
             return True
