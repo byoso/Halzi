@@ -89,6 +89,7 @@ class CenterPanel(gtk.Box):
         self._selection_auto_scroll_direction = 0
         self._selection_auto_scroll_speed = 18
         self._selection_edge_margin = 42
+        self._follow_stream_bottom = False
 
         split = gtk.Paned.new(gtk.Orientation.VERTICAL)
         split.set_hexpand(True)
@@ -99,6 +100,8 @@ class CenterPanel(gtk.Box):
         self.top_scroll.get_style_context().add_class("halzi-scroll")
         self.top_scroll.set_hexpand(True)
         self.top_scroll.set_vexpand(True)
+        self.top_scroll.add_events(Gdk.EventMask.BUTTON_RELEASE_MASK)
+        self.top_scroll.connect("button-release-event", self._on_top_scroll_button_release)
 
         self.top_box = gtk.Box(orientation=gtk.Orientation.VERTICAL, spacing=10)
         self.top_box.set_margin_top(12)
@@ -166,6 +169,17 @@ class CenterPanel(gtk.Box):
         vadj.set_value(max(0.0, vadj.get_upper() - vadj.get_page_size()))
         return False
 
+    def _is_near_bottom(self, tolerance: float = 8.0) -> bool:
+        vadj = self.top_scroll.get_vadjustment()
+        if vadj is None:
+            return True
+
+        max_value = max(vadj.get_lower(), vadj.get_upper() - vadj.get_page_size())
+        return (max_value - vadj.get_value()) <= tolerance
+
+    def _stream_is_active(self) -> bool:
+        return (self._streaming_assistant_label is not None) and (not self._streaming_done)
+
     def clear_conversation_view(self) -> None:
         for child in self.top_box.get_children():
             self.top_box.remove(child)
@@ -179,17 +193,20 @@ class CenterPanel(gtk.Box):
         GLib.idle_add(self.scroll_to_bottom)
 
     def _wire_output_widget(self, widget: gtk.Widget) -> None:
+        widget.set_can_focus(True)
         widget.add_events(
             Gdk.EventMask.BUTTON_PRESS_MASK
             | Gdk.EventMask.BUTTON_RELEASE_MASK
             | Gdk.EventMask.POINTER_MOTION_MASK
             | Gdk.EventMask.SCROLL_MASK
             | Gdk.EventMask.SMOOTH_SCROLL_MASK
+            | Gdk.EventMask.KEY_PRESS_MASK
         )
         widget.connect("button-press-event", self._on_output_button_press)
         widget.connect("button-release-event", self._on_output_button_release)
         widget.connect("motion-notify-event", self._on_output_motion)
         widget.connect("scroll-event", self._on_output_scroll)
+        widget.connect("key-press-event", self._on_output_key_press)
 
     def _build_output_row(self, text: str, is_user: bool) -> Tuple[gtk.Widget, gtk.Label]:
         row = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=0)
@@ -281,6 +298,9 @@ class CenterPanel(gtk.Box):
         if event.button == 1:
             self._selection_drag_active = True
             self._selection_auto_scroll_direction = 0
+            if self._stream_is_active():
+                # Do not keep forcing bottom-follow while user is selecting text.
+                self._follow_stream_bottom = False
         return False
 
     def _on_output_button_release(self, _widget: gtk.Widget, event: Gdk.EventButton) -> bool:
@@ -291,6 +311,64 @@ class CenterPanel(gtk.Box):
 
     def _on_output_motion(self, widget: gtk.Widget, event: Gdk.EventMotion) -> bool:
         return self._update_selection_auto_scroll(widget, event)
+
+    def _iter_output_labels(self) -> List[gtk.Label]:
+        labels: List[gtk.Label] = []
+        for row in self.top_box.get_children():
+            if not isinstance(row, gtk.Box):
+                continue
+            for child in row.get_children():
+                if isinstance(child, gtk.Label):
+                    labels.append(child)
+        return labels
+
+    def _has_output_selection(self) -> bool:
+        for label in self._iter_output_labels():
+            try:
+                bounds = label.get_selection_bounds()
+            except Exception:
+                continue
+
+            if not bounds:
+                continue
+
+            # Depending on GTK/PyGObject bindings this can be:
+            # (start, end) or (has_selection, start, end).
+            if len(bounds) == 2:
+                start, end = bounds
+                if start != end:
+                    return True
+            elif len(bounds) >= 3 and bool(bounds[0]):
+                return True
+
+        return False
+
+    def _select_all_output_text(self) -> bool:
+        labels = self._iter_output_labels()
+        if not labels:
+            return False
+
+        all_text_parts: List[str] = []
+        for label in labels:
+            text = label.get_text() or ""
+            all_text_parts.append(text)
+            label.select_region(0, len(text))
+
+        full_text = "\n\n".join(part for part in all_text_parts if part)
+        if full_text:
+            gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(full_text, -1)
+            gtk.Clipboard.get(Gdk.SELECTION_PRIMARY).set_text(full_text, -1)
+        return True
+
+    def _on_output_key_press(self, _widget: gtk.Widget, event: Gdk.EventKey) -> bool:
+        is_ctrl_a = (
+            (event.state & Gdk.ModifierType.CONTROL_MASK)
+            and event.keyval in (Gdk.KEY_a, Gdk.KEY_A)
+        )
+        if not is_ctrl_a:
+            return False
+
+        return self._select_all_output_text()
 
     def _on_output_scroll(self, _widget: gtk.Widget, event: Gdk.EventScroll) -> bool:
         vadj = self.top_scroll.get_vadjustment()
@@ -310,7 +388,13 @@ class CenterPanel(gtk.Box):
         elif event.direction == Gdk.ScrollDirection.RIGHT:
             delta = page
         elif event.direction == Gdk.ScrollDirection.SMOOTH:
-            _, smooth_dy = event.get_scroll_deltas()
+            deltas = event.get_scroll_deltas()
+            if len(deltas) == 3:
+                _has_delta, _smooth_dx, smooth_dy = deltas
+            elif len(deltas) == 2:
+                _smooth_dx, smooth_dy = deltas
+            else:
+                smooth_dy = 0.0
             if smooth_dy != 0.0:
                 delta = smooth_dy * page
 
@@ -321,7 +405,16 @@ class CenterPanel(gtk.Box):
         lower = vadj.get_lower()
         upper_limit = max(lower, vadj.get_upper() - vadj.get_page_size())
         vadj.set_value(max(lower, min(upper_limit, current + delta)))
+
+        if self._stream_is_active():
+            self._follow_stream_bottom = self._is_near_bottom()
+
         return True
+
+    def _on_top_scroll_button_release(self, _widget: gtk.Widget, _event: Gdk.EventButton) -> bool:
+        if self._stream_is_active():
+            self._follow_stream_bottom = self._is_near_bottom()
+        return False
 
     def append_message(self, text: str, is_user: bool) -> None:
         if self.output_hint.get_parent() is not None:
@@ -345,11 +438,14 @@ class CenterPanel(gtk.Box):
         self._streaming_target_text = ""
         self._streaming_display_text = ""
         self._streaming_done = False
+        self._follow_stream_bottom = False
+
+        # One initial jump to bottom before stream rendering starts.
+        GLib.idle_add(self.scroll_to_bottom)
 
         if self._typing_source_id is None:
             self._typing_source_id = GLib.timeout_add(self._typing_interval_ms, self._typing_effect_tick)
 
-        GLib.idle_add(self.scroll_to_bottom)
         return False
 
     def _append_assistant_stream_chunk(self, piece: str) -> bool:
@@ -369,6 +465,13 @@ class CenterPanel(gtk.Box):
             self._typing_source_id = None
             return False
 
+        # Keep current visual text stable while the user is drag-selecting
+        # or while any output text remains selected.
+        # New chunks keep accumulating in _streaming_target_text and will be rendered
+        # once selection is cleared.
+        if self._selection_drag_active or self._has_output_selection():
+            return True
+
         target_len = len(self._streaming_target_text)
         current_len = len(self._streaming_display_text)
 
@@ -376,7 +479,8 @@ class CenterPanel(gtk.Box):
             next_len = min(target_len, current_len + self._typing_step_chars)
             self._streaming_display_text = self._streaming_target_text[:next_len]
             label.set_text(self._streaming_display_text)
-            GLib.idle_add(self.scroll_to_bottom)
+            if self._follow_stream_bottom:
+                GLib.idle_add(self.scroll_to_bottom)
             return True
 
         if self._streaming_done:
@@ -388,6 +492,7 @@ class CenterPanel(gtk.Box):
 
     def _finalize_assistant_stream(self) -> bool:
         self._streaming_done = True
+        self._follow_stream_bottom = False
         if self._typing_source_id is None:
             self._typing_source_id = GLib.timeout_add(self._typing_interval_ms, self._typing_effect_tick)
         return False
