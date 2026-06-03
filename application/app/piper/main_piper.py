@@ -2,6 +2,8 @@ import subprocess
 import sounddevice as sd
 import json
 import numpy as np
+import shutil
+import sys
 from pathlib import Path
 from typing import List, Tuple
 import threading
@@ -15,6 +17,31 @@ SPEAKER_ID = get_settings().piper_speaker_id
 BASE_DIR = Path(__file__).parent
 
 PIPER_MODEL = BASE_DIR / PIPER_VOICE
+
+
+def _resolve_piper_executable() -> str:
+    """Resolve Piper CLI path for both terminal and desktop launcher contexts."""
+    # Prefer the executable located next to the active Python interpreter
+    # (typically inside the application venv).
+    # IMPORTANT: do not call .resolve() here; in venvs, python is often a symlink
+    # to /usr/bin/pythonX.Y, and resolving would lose the venv bin directory.
+    interpreter_dir = Path(sys.executable).parent
+    local_piper = interpreter_dir / "piper"
+    if local_piper.is_file():
+        return str(local_piper)
+
+    # Fallback to the current PATH when running in a shell environment.
+    path_piper = shutil.which("piper")
+    if path_piper:
+        return path_piper
+
+    raise FileNotFoundError(
+        "Piper executable not found. Expected in venv next to Python "
+        f"({interpreter_dir / 'piper'}) or available in PATH."
+    )
+
+
+PIPER_EXECUTABLE = _resolve_piper_executable()
 
 # Track active Piper subprocesses so they can be terminated on shutdown
 _active_procs: List[subprocess.Popen] = []
@@ -42,7 +69,7 @@ def synthesize_text_to_audio(text: str) -> Tuple[np.ndarray, int]:
     """
     proc = subprocess.Popen(
         [
-            "piper",
+            PIPER_EXECUTABLE,
             "--model",
             str(PIPER_MODEL),
             "--output_raw",

@@ -12,6 +12,14 @@ class ToolModel(Model):
     permission_level: int = 0  # 0: all, 1: admin only, etc.
 
 @dataclass
+class PersonnalityModel(Model):
+    """personnalities"""
+    name: str
+    description: str
+    file: str  # path to the Markdown file of this personnality
+
+
+@dataclass
 class SessionModel(Model):
     """sessions"""
     _created_at: int
