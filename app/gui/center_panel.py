@@ -89,6 +89,8 @@ class CenterPanel(gtk.Box):
         self._selection_auto_scroll_source_id: Optional[int] = None
         self._selection_auto_scroll_direction = 0
         self._selection_auto_scroll_speed = 18
+        self._wheel_scroll_step = 12.0
+        self._wheel_smooth_factor = 12.0
         self._selection_edge_margin = 42
         self._follow_stream_bottom = False
         self._markdown_mode = False
@@ -432,7 +434,7 @@ class CenterPanel(gtk.Box):
         if vadj is None:
             return False
 
-        step = vadj.get_step_increment() or 24.0
+        step = self._wheel_scroll_step
         page = vadj.get_page_increment() or max(step * 4.0, 48.0)
         delta = 0.0
 
@@ -453,7 +455,7 @@ class CenterPanel(gtk.Box):
             else:
                 smooth_dy = 0.0
             if smooth_dy != 0.0:
-                delta = smooth_dy * page
+                delta = smooth_dy * self._wheel_smooth_factor
 
         if delta == 0.0:
             return False
