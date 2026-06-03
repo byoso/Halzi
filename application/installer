@@ -28,10 +28,10 @@ NAME = "Halzimir"
 DESCRIPTION = "Halzimir local AI assistant"
 # The main executable file of the application
 # The path is relative to this directory (BASE_DIR defined below)
-EXECUTABLE = "main.py"
+EXECUTABLE = "app/main.py"
 # The icon that your system will use (optional, but so much better)
 # The path is relative to this directory (BASE_DIR defined below)
-ICON = "icon.png"
+ICON = "app/icon.png"
 # Does your application needs to appear within a terminal ?
 # (usually, a graphical application doesn't need a terminal)
 TERMINAL = False
@@ -76,8 +76,8 @@ options = [
 ]
 
 # optional pre installation/uninstallation script files (e.g. "scripts/pre_install.sh")
-pre_install_script = "_installation/pre_install.sh"
-post_install_script = "_installation/post_install.sh"
+pre_install_script = "app/_installation/pre_install.sh"
+post_install_script = "app/_installation/post_install.sh"
 pre_uninstall_script = ""
 
 # you're done ! :)
