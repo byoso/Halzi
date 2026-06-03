@@ -1,6 +1,6 @@
 #! /bin/env bash
 
-app_name="Tournesol AI"
+app_name="Halzimir"
 
 
 echo "Performing some checks before installing $app_name..."

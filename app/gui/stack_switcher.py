@@ -6,14 +6,14 @@ from gi.repository import Gtk as gtk
 
 
 def _resolve_icon_name(*icon_names: str) -> str:
-	theme = gtk.IconTheme.get_default()
-	if theme is None:
-		return icon_names[0]
+    theme = gtk.IconTheme.get_default()
+    if theme is None:
+        return icon_names[0]
 
-	for icon_name in icon_names:
-		if icon_name and theme.has_icon(icon_name):
-			return icon_name
-	return icon_names[0]
+    for icon_name in icon_names:
+        if icon_name and theme.has_icon(icon_name):
+            return icon_name
+    return icon_names[0]
 
 
 class StackSwitcher(gtk.Box):

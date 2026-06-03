@@ -84,6 +84,11 @@ class CenterPanel(gtk.Box):
         self._typing_source_id: Optional[int] = None
         self._typing_step_chars = 3
         self._typing_interval_ms = 24
+        self._selection_drag_active = False
+        self._selection_auto_scroll_source_id: Optional[int] = None
+        self._selection_auto_scroll_direction = 0
+        self._selection_auto_scroll_speed = 18
+        self._selection_edge_margin = 42
 
         split = gtk.Paned.new(gtk.Orientation.VERTICAL)
         split.set_hexpand(True)
@@ -173,10 +178,20 @@ class CenterPanel(gtk.Box):
         self.top_box.show_all()
         GLib.idle_add(self.scroll_to_bottom)
 
-    def append_message(self, text: str, is_user: bool) -> None:
-        if self.output_hint.get_parent() is not None:
-            self.top_box.remove(self.output_hint)
+    def _wire_output_widget(self, widget: gtk.Widget) -> None:
+        widget.add_events(
+            Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.BUTTON_RELEASE_MASK
+            | Gdk.EventMask.POINTER_MOTION_MASK
+            | Gdk.EventMask.SCROLL_MASK
+            | Gdk.EventMask.SMOOTH_SCROLL_MASK
+        )
+        widget.connect("button-press-event", self._on_output_button_press)
+        widget.connect("button-release-event", self._on_output_button_release)
+        widget.connect("motion-notify-event", self._on_output_motion)
+        widget.connect("scroll-event", self._on_output_scroll)
 
+    def _build_output_row(self, text: str, is_user: bool) -> Tuple[gtk.Widget, gtk.Label]:
         row = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=0)
         row.set_hexpand(True)
 
@@ -187,10 +202,132 @@ class CenterPanel(gtk.Box):
         label.set_halign(gtk.Align.END if is_user else gtk.Align.START)
         label.get_style_context().add_class("halzi-output-text")
 
+        self._wire_output_widget(row)
+        self._wire_output_widget(label)
+
         if is_user:
             row.pack_end(label, False, False, 6)
         else:
             row.pack_start(label, False, False, 6)
+
+        return row, label
+
+    def _selection_auto_scroll_stop(self) -> None:
+        self._selection_auto_scroll_direction = 0
+        if self._selection_auto_scroll_source_id is not None:
+            GLib.source_remove(self._selection_auto_scroll_source_id)
+            self._selection_auto_scroll_source_id = None
+
+    def _selection_auto_scroll_tick(self) -> bool:
+        direction = self._selection_auto_scroll_direction
+        if direction == 0 or not self._selection_drag_active:
+            self._selection_auto_scroll_stop()
+            return False
+
+        vadj = self.top_scroll.get_vadjustment()
+        if vadj is None:
+            self._selection_auto_scroll_stop()
+            return False
+
+        current = vadj.get_value()
+        lower = vadj.get_lower()
+        upper_limit = max(lower, vadj.get_upper() - vadj.get_page_size())
+        next_value = current + (direction * self._selection_auto_scroll_speed)
+        next_value = max(lower, min(upper_limit, next_value))
+        if next_value == current:
+            return True
+
+        vadj.set_value(next_value)
+        return True
+
+    def _update_selection_auto_scroll(self, widget: gtk.Widget, event: Gdk.EventMotion) -> bool:
+        if not self._selection_drag_active:
+            self._selection_auto_scroll_stop()
+            return False
+
+        if not (event.state & Gdk.ModifierType.BUTTON1_MASK):
+            self._selection_auto_scroll_stop()
+            return False
+
+        translated = widget.translate_coordinates(self.top_scroll, int(event.x), int(event.y))
+        if translated is None:
+            self._selection_auto_scroll_stop()
+            return False
+
+        _, y = translated
+        allocation = self.top_scroll.get_allocation()
+        if allocation.height <= 0:
+            self._selection_auto_scroll_stop()
+            return False
+
+        direction = 0
+        margin = self._selection_edge_margin
+        if y <= margin:
+            direction = -1
+        elif y >= allocation.height - margin:
+            direction = 1
+
+        if direction == 0:
+            self._selection_auto_scroll_stop()
+            return False
+
+        self._selection_auto_scroll_direction = direction
+        if self._selection_auto_scroll_source_id is None:
+            self._selection_auto_scroll_source_id = GLib.timeout_add(24, self._selection_auto_scroll_tick)
+
+        return False
+
+    def _on_output_button_press(self, widget: gtk.Widget, event: Gdk.EventButton) -> bool:
+        if event.button == 1:
+            self._selection_drag_active = True
+            self._selection_auto_scroll_direction = 0
+        return False
+
+    def _on_output_button_release(self, _widget: gtk.Widget, event: Gdk.EventButton) -> bool:
+        if event.button == 1:
+            self._selection_drag_active = False
+            self._selection_auto_scroll_stop()
+        return False
+
+    def _on_output_motion(self, widget: gtk.Widget, event: Gdk.EventMotion) -> bool:
+        return self._update_selection_auto_scroll(widget, event)
+
+    def _on_output_scroll(self, _widget: gtk.Widget, event: Gdk.EventScroll) -> bool:
+        vadj = self.top_scroll.get_vadjustment()
+        if vadj is None:
+            return False
+
+        step = vadj.get_step_increment() or 24.0
+        page = vadj.get_page_increment() or max(step * 4.0, 48.0)
+        delta = 0.0
+
+        if event.direction == Gdk.ScrollDirection.UP:
+            delta = -step
+        elif event.direction == Gdk.ScrollDirection.DOWN:
+            delta = step
+        elif event.direction == Gdk.ScrollDirection.LEFT:
+            delta = -page
+        elif event.direction == Gdk.ScrollDirection.RIGHT:
+            delta = page
+        elif event.direction == Gdk.ScrollDirection.SMOOTH:
+            _, smooth_dy = event.get_scroll_deltas()
+            if smooth_dy != 0.0:
+                delta = smooth_dy * page
+
+        if delta == 0.0:
+            return False
+
+        current = vadj.get_value()
+        lower = vadj.get_lower()
+        upper_limit = max(lower, vadj.get_upper() - vadj.get_page_size())
+        vadj.set_value(max(lower, min(upper_limit, current + delta)))
+        return True
+
+    def append_message(self, text: str, is_user: bool) -> None:
+        if self.output_hint.get_parent() is not None:
+            self.top_box.remove(self.output_hint)
+
+        row, _label = self._build_output_row(text, is_user)
 
         self.top_box.pack_start(row, False, False, 0)
         self.top_box.show_all()
@@ -200,17 +337,7 @@ class CenterPanel(gtk.Box):
         if self.output_hint.get_parent() is not None:
             self.top_box.remove(self.output_hint)
 
-        row = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=0)
-        row.set_hexpand(True)
-
-        label = gtk.Label(label="")
-        label.set_line_wrap(True)
-        label.set_selectable(True)
-        label.set_xalign(0.0)
-        label.set_halign(gtk.Align.START)
-        label.get_style_context().add_class("halzi-output-text")
-
-        row.pack_start(label, False, False, 6)
+        row, label = self._build_output_row("", False)
         self.top_box.pack_start(row, False, False, 0)
         self.top_box.show_all()
 
@@ -618,6 +745,7 @@ class CenterPanel(gtk.Box):
         self._tts_user_interrupt_requested.set()
         self._tts_user_interrupt_done.set()
         self._shutdown_requested.set()
+        self._selection_auto_scroll_stop()
         self.stop_voice_input()
         self.header_mic_active = False
         self.mini_mic_mode = False

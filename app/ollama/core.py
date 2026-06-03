@@ -286,3 +286,30 @@ def process_prompt(
         session_memory.append(("Assistant", output))
 
     return session_memory, output
+
+def list_installed_models(require_running: bool = True) -> List[str]:
+    """
+    Return installed Ollama model names from /api/tags.
+    If require_running is True, try to ensure Ollama is up first.
+    """
+    if require_running and not _is_ollama_port_open():
+        if not ensure_ollama_running(timeout=10):
+            return []
+
+    try:
+        res = requests.get(
+            f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/tags",
+            timeout=OLLAMA_TIMEOUT,
+        )
+        res.raise_for_status()
+        payload = res.json()
+    except Exception:
+        return []
+
+    names: List[str] = []
+    for item in payload.get("models", []):
+        name = item.get("name") or item.get("model")
+        if name:
+            names.append(name)
+
+    return sorted(set(names))

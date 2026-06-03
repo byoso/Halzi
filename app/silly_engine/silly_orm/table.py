@@ -98,10 +98,21 @@ class Table:
             if field_name in payload:
                 payload[field_name] = self._normalize_single_fk_value(payload[field_name])
 
+    def _ttl_is_enabled(self) -> bool:
+        meta = self.model.get_meta()
+        return bool(hasattr(meta, 'ttl') and meta.ttl)
+
     def _fetch_row_data(self, **kwargs):
-        filters = " AND ".join(f"{k}=?" for k in kwargs.keys())
+        clauses = [f"{k}=?" for k in kwargs.keys()]
+        params = list(kwargs.values())
+
+        if self._ttl_is_enabled():
+            clauses.append("_expires_at > ?")
+            params.append(int(time.time()))
+
+        filters = " AND ".join(clauses)
         sql = f"SELECT * FROM {self.name} WHERE {filters} LIMIT 1"
-        self.db.connector.execute(sql, tuple(kwargs.values()))
+        self.db.connector.execute(sql, tuple(params))
         row = self.db.connector.fetchone()
         if row is None:
             return None
@@ -369,6 +380,27 @@ class Table:
                 self.db.connector.rollback()
             raise
 
+    def purge_ttl(self) -> int:
+        """Delete expired TTL rows from this table and return deleted row count."""
+        if not self._ttl_is_enabled():
+            return 0
+
+        now_ts = int(time.time())
+        self.db.connector.execute(
+            f"SELECT _id FROM {self.name} WHERE _expires_at <= ?",
+            (now_ts,),
+        )
+        expired_ids = [row[0] for row in self.db.connector.fetchall()]
+
+        if not expired_ids:
+            return 0
+
+        with self.db.transaction():
+            for record_id in expired_ids:
+                self.delete_by_id(record_id)
+
+        return len(expired_ids)
+
     def delete(self, item_or_id=None):
         if item_or_id is None:
             return MutationQuery(self, "delete")
@@ -390,13 +422,10 @@ class Table:
         """Returns a single QItem matching the filters, or None if not found.
         This is equivalent to a filter(...).first() shortcut.
         """
-        filters = " AND ".join(f"{k}=?" for k in kwargs.keys())
-        sql = f"SELECT * FROM {self.name} WHERE {filters} LIMIT 1"
-        self.db.connector.execute(sql, tuple(kwargs.values()))
-        row = self.db.connector.fetchone()
+        row = self._fetch_row_data(**kwargs)
         if row is None:
             return None
-        return self._make_item(dict(zip([c[0] for c in self.db.connector.cursor.description], row)))
+        return self._make_item(row)
 
     def filter(self, **kwargs):
         return Query(self).filter(**kwargs)

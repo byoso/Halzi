@@ -3,7 +3,9 @@
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk as gtk, GLib
+from pathlib import Path
+
+from gi.repository import Gtk as gtk, GLib, GdkPixbuf
 from .constants import SIDEBAR_WIDTH
 from .styles import load_css
 from .headerbar import build_headerbar
@@ -16,6 +18,9 @@ from .settings_gui.main_settings import build_settings_page
 from app.config import APP_NAME
 from app import status_state
 
+
+APP_DIR = Path(__file__).resolve().parent.parent
+
 class MainWindow(gtk.Window):
     """Main GUI mockup with 3 columns: 1/4 - 1/2 - 1/4."""
     def __init__(self):
@@ -23,6 +28,8 @@ class MainWindow(gtk.Window):
         self.set_default_size(1280, 760)
         self.set_position(gtk.WindowPosition.CENTER)
         self.connect("destroy", self._on_destroy)
+        icon = GdkPixbuf.Pixbuf.new_from_file(str(APP_DIR / "icon.png"))
+        self.set_icon(icon)
 
         self.stack_switcher = StackSwitcher(
             on_show_main=self._show_main_page,

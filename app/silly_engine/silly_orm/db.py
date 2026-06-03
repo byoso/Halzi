@@ -318,6 +318,22 @@ class SillyDb:
 
         return self._tables[name]
 
+    def purge_ttl(self) -> dict[str, int]:
+        """Purge expired TTL rows from all registered user tables."""
+        deleted_by_table = {}
+
+        for table_name, table in list(self._tables.items()):
+            if table_name == "_settings":
+                continue
+
+            meta = table.model.get_meta()
+            if not (hasattr(meta, 'ttl') and meta.ttl):
+                continue
+
+            deleted_by_table[table_name] = table.purge_ttl()
+
+        return deleted_by_table
+
     def execute(self, query: str, params=None):
         return self.connector.execute(query, params)
 
