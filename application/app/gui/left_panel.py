@@ -21,15 +21,10 @@ class ThemePanel(gtk.Box):
     ):
         super().__init__(orientation=gtk.Orientation.VERTICAL, spacing=0)
         self.themes_list = core.list_themes()
-        if self.themes_list:
-            self.active_theme = self.themes_list[0]
-        else:
-            self.active_theme = None
+        restored_theme, restored_session = core.restore_last_selection()
+        self.active_theme = restored_theme
         self.sessions_list: list[QItem] = []
-        self.active_session: QItem | None = None
-
-        store.active_theme = self.active_theme
-        store.active_session = None
+        self.active_session = restored_session
         self.get_style_context().add_class("halzi-panel")
         self.set_hexpand(True)
         self.set_vexpand(True)
@@ -86,6 +81,8 @@ class ThemePanel(gtk.Box):
         self.pack_start(scroll, True, True, 0)
 
         self.refresh()
+        if self.active_session is not None:
+            self._notify_session_selected(self.active_session)
 
     def _set_status(self, text: str) -> None:
         status_state.set_status(text)
@@ -268,8 +265,14 @@ class ThemePanel(gtk.Box):
 
         self.themes_list = core.list_themes()
 
-        if self.active_theme not in self.themes_list:
-            self.active_theme = self.themes_list[0] if self.themes_list else None
+        # Match by _id because each DB call returns new Python objects
+        active_id = self.active_theme.q._id if self.active_theme is not None else None
+        matched = (
+            next((t for t in self.themes_list if t.q._id == active_id), None)
+            if active_id is not None
+            else None
+        )
+        self.active_theme = matched if matched is not None else (self.themes_list[0] if self.themes_list else None)
         store.active_theme = self.active_theme
 
         for theme in self.themes_list:

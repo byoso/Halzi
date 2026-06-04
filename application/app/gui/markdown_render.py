@@ -2,10 +2,12 @@ import re
 from html import escape
 
 
-KEYWORD_COLOR = "#d73a49"
-STRING_COLOR = "#032f62"
-NUMBER_COLOR = "#005cc5"
-COMMENT_COLOR = "#6a737d"
+KEYWORD_COLOR  = "#c0392b"   # red — language keywords
+BUILTIN_COLOR  = "#1a7abf"   # blue — built-in functions / types
+STRING_COLOR   = "#2e7d32"   # green — string literals
+NUMBER_COLOR   = "#7b4fa6"   # purple — numeric literals
+COMMENT_COLOR  = "#888888"   # grey — comments
+OPERATOR_COLOR = "#d35400"   # orange — operators
 INLINE_CODE_COLOR = "#6f42c1"
 
 LANGUAGE_KEYWORDS = {
@@ -35,6 +37,79 @@ LANGUAGE_KEYWORDS = {
     "bash": {
         "if", "then", "else", "elif", "fi", "for", "in", "do", "done", "case", "esac",
         "while", "until", "function", "return", "export", "local", "readonly", "unset",
+        "echo", "source", "alias", "set", "shift", "exit", "trap", "exec",
+    },
+    "rust": {
+        "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
+        "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
+        "match", "mod", "move", "mut", "pub", "ref", "return", "self", "Self",
+        "static", "struct", "super", "trait", "true", "type", "union", "unsafe",
+        "use", "where", "while",
+    },
+    "go": {
+        "break", "case", "chan", "const", "continue", "default", "defer", "else",
+        "fallthrough", "for", "func", "go", "goto", "if", "import", "interface",
+        "map", "package", "range", "return", "select", "struct", "switch", "type",
+        "var", "nil", "true", "false",
+    },
+    "c": {
+        "auto", "break", "case", "char", "const", "continue", "default", "do",
+        "double", "else", "enum", "extern", "float", "for", "goto", "if", "inline",
+        "int", "long", "register", "return", "short", "signed", "sizeof",
+        "static", "struct", "switch", "typedef", "union", "unsigned", "void",
+        "volatile", "while", "NULL", "true", "false",
+    },
+    "sql": {
+        "SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "INSERT", "INTO", "VALUES",
+        "UPDATE", "SET", "DELETE", "CREATE", "TABLE", "DROP", "ALTER", "INDEX",
+        "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "ON", "AS", "DISTINCT", "ORDER",
+        "BY", "GROUP", "HAVING", "LIMIT", "OFFSET", "NULL", "IS", "IN", "LIKE",
+        "BETWEEN", "EXISTS", "UNION", "ALL", "PRIMARY", "KEY", "FOREIGN", "REFERENCES",
+        "DEFAULT", "BEGIN", "COMMIT", "ROLLBACK", "TRANSACTION",
+        "select", "from", "where", "and", "or", "not", "insert", "into", "values",
+        "update", "set", "delete", "create", "table", "drop", "alter", "index",
+        "join", "left", "right", "inner", "outer", "on", "as", "distinct", "order",
+        "by", "group", "having", "limit", "offset", "null", "is", "in", "like",
+        "between", "exists", "union", "all", "primary", "key", "foreign", "default",
+    },
+}
+
+LANGUAGE_BUILTINS = {
+    "python": {
+        "abs", "all", "any", "bin", "bool", "bytearray", "bytes", "callable", "chr",
+        "classmethod", "compile", "complex", "delattr", "dict", "dir", "divmod",
+        "enumerate", "eval", "exec", "filter", "float", "format", "frozenset",
+        "getattr", "globals", "hasattr", "hash", "hex", "id", "input", "int",
+        "isinstance", "issubclass", "iter", "len", "list", "locals", "map", "max",
+        "min", "next", "object", "oct", "open", "ord", "pow", "print", "property",
+        "range", "repr", "reversed", "round", "set", "setattr", "slice", "sorted",
+        "staticmethod", "str", "sum", "super", "tuple", "type", "vars", "zip",
+        "Exception", "ValueError", "TypeError", "KeyError", "IndexError",
+        "AttributeError", "OSError", "RuntimeError", "StopIteration",
+        "NotImplementedError", "FileNotFoundError", "PermissionError",
+    },
+    "javascript": {
+        "console", "Math", "JSON", "Object", "Array", "String", "Number", "Boolean",
+        "Promise", "Error", "Date", "RegExp", "Map", "Set", "Symbol", "parseInt",
+        "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI",
+        "setTimeout", "clearTimeout", "setInterval", "clearInterval", "fetch",
+    },
+    "typescript": {
+        "console", "Math", "JSON", "Object", "Array", "String", "Number", "Boolean",
+        "Promise", "Error", "Date", "RegExp", "Map", "Set", "Symbol", "parseInt",
+        "parseFloat", "isNaN", "fetch", "Record", "Partial", "Required", "Readonly",
+        "Pick", "Omit", "ReturnType", "Parameters",
+    },
+    "rust": {
+        "Some", "None", "Ok", "Err", "Vec", "String", "Option", "Result", "Box",
+        "Rc", "Arc", "HashMap", "HashSet", "println", "print", "eprintln", "panic",
+        "assert", "assert_eq", "assert_ne", "todo", "unimplemented", "unreachable",
+        "format", "write", "writeln",
+    },
+    "go": {
+        "append", "cap", "close", "copy", "delete", "len", "make", "new", "panic",
+        "print", "println", "recover", "bool", "byte", "int", "int8", "int16",
+        "int32", "int64", "uint", "uint8", "float32", "float64", "string", "rune", "error",
     },
 }
 
@@ -43,7 +118,7 @@ def markdown_to_pango(text: str) -> str:
     """Convert a lightweight Markdown subset to Pango markup.
 
     Supported:
-    - headings (#, ##, ###)
+    - headings (# to ######)
     - unordered lists (-, *)
     - bold (**text**)
     - italic (*text*)
@@ -93,7 +168,25 @@ def markdown_to_pango(text: str) -> str:
         out_lines.append(line_markup)
         i += 1
 
-    return "\n".join(out_lines)
+    return _sanitize_pango_markup("\n".join(out_lines))
+
+
+def _sanitize_pango_markup(markup: str) -> str:
+    """Escape non-Pango tags that may leak from user/model content (e.g. <hr>)."""
+    if not markup:
+        return ""
+
+    allowed_tags = {"b", "i", "tt", "span"}
+
+    def replace_tag(match: re.Match[str]) -> str:
+        full = match.group(0)
+        tag_name = match.group(2).lower()
+        if tag_name in allowed_tags:
+            return full
+        return escape(full)
+
+    # Keep only a strict whitelist of tags that we intentionally emit.
+    return re.sub(r"<\s*(/?)\s*([A-Za-z][A-Za-z0-9]*)\b[^>]*>", replace_tag, markup)
 
 
 def _is_table_row(line: str) -> bool:
@@ -164,7 +257,8 @@ def _table_separator_to_tt(widths: list[int]) -> str:
 def _line_to_markup(line: str) -> str:
     stripped = line.lstrip()
 
-    heading_match = re.match(r"^(#{1,3})\s+(.*)$", stripped)
+    # Accept headings from level 1 to 6 with or without a space after hashes.
+    heading_match = re.match(r"^(#{1,6})(?:\s+|$)(.*)$", stripped)
     if heading_match is not None:
         body = _inline_markdown_to_pango(heading_match.group(2))
         return f"<b>{body}</b>"
@@ -192,6 +286,13 @@ def _inline_markdown_to_pango(text: str) -> str:
 
 
 def _highlight_code_line(line: str, language: str) -> str:
+    lang = _normalize_language(language)
+
+    # HTML/XML are safer rendered as escaped text in <tt>, because any accidental
+    # reconstruction of angle-bracket tokens can break Gtk/Pango markup parsing.
+    if lang in {"html", "xml"}:
+        return f"<tt>{escape(line)}</tt>"
+
     comment_start = _comment_prefix(language)
     comment_index = -1
     if comment_start:
@@ -236,37 +337,63 @@ def _highlight_code_part(code: str, language: str) -> str:
 
 
 def _highlight_plain_code(text: str, language: str) -> str:
+    lang = _normalize_language(language)
     escaped = escape(text)
-    keywords = LANGUAGE_KEYWORDS.get(language, LANGUAGE_KEYWORDS.get(_normalize_language(language), set()))
-    if keywords:
-        keyword_pattern = r"\\b(" + "|".join(sorted(re.escape(k) for k in keywords)) + r")\\b"
-        escaped = re.sub(keyword_pattern, lambda m: _span(m.group(1), KEYWORD_COLOR), escaped)
 
+    # Operators (applied on escaped text — only ASCII safe chars)
     escaped = re.sub(
-        r"\\b\\d+(?:\\.\\d+)?\\b",
-        lambda m: _span(m.group(0), NUMBER_COLOR),
+        r"(=&gt;|-&gt;|==|!=|&lt;=|&gt;=|&lt;&lt;|&gt;&gt;|&lt;|&gt;|[+\-*/%]=|[|^~])",
+        lambda m: _span(m.group(1), OPERATOR_COLOR),
         escaped,
     )
+
+    # Keywords
+    keywords = LANGUAGE_KEYWORDS.get(lang, set())
+    if keywords:
+        kw_pattern = r"\b(" + "|".join(sorted(re.escape(k) for k in keywords)) + r")\b"
+        escaped = re.sub(kw_pattern, lambda m: _span(m.group(1), KEYWORD_COLOR), escaped)
+
+    # Built-ins (distinct color from keywords)
+    builtins = LANGUAGE_BUILTINS.get(lang, set())
+    if builtins:
+        bi_pattern = r"\b(" + "|".join(sorted(re.escape(b) for b in builtins)) + r")\b"
+        escaped = re.sub(bi_pattern, lambda m: _span(m.group(1), BUILTIN_COLOR), escaped)
+
+    # Numbers
+    escaped = re.sub(
+        r"\b(\d+(?:\.\d+)?)\b",
+        lambda m: _span(m.group(1), NUMBER_COLOR),
+        escaped,
+    )
+
     return escaped
 
 
 def _comment_prefix(language: str) -> str:
     lang = _normalize_language(language)
-    if lang in {"python", "bash", "shell"}:
+    if lang in {"python", "bash", "ruby", "perl"}:
         return "#"
-    if lang in {"javascript", "typescript", "json", "c", "cpp", "java", "go", "rust"}:
+    if lang in {"javascript", "typescript", "java", "go", "rust", "c", "swift", "kotlin"}:
         return "//"
+    if lang == "sql":
+        return "--"
+    if lang == "lua":
+        return "--"
     return ""
 
 
 def _normalize_language(language: str) -> str:
     aliases = {
-        "py": "python",
-        "js": "javascript",
-        "ts": "typescript",
-        "sh": "bash",
-        "zsh": "bash",
-        "yml": "yaml",
+        "py":   "python",
+        "js":   "javascript",
+        "ts":   "typescript",
+        "sh":   "bash",
+        "zsh":  "bash",
+        "shell": "bash",
+        "rs":   "rust",
+        "cpp":  "c",
+        "c++":  "c",
+        "yml":  "yaml",
     }
     return aliases.get(language.lower(), language.lower())
 

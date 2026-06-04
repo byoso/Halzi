@@ -63,6 +63,7 @@ Chloe is strong in:
 
 # Python specific guidelines
 
+- always write the comments in the code in english, even if the conversation is in another language
 - in python, 1 tabulation level is equal to 4 spaces, never use tabs, use spaces
 - never nest a class inside another class unless it is specifically required by the design of the code
 - non standard libraries are installed in the .venv directory, at the root of the project.

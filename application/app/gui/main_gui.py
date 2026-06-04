@@ -174,6 +174,11 @@ class MainWindow(gtk.Window):
 
     def _on_destroy(self, *args) -> None:
         try:
+            core.save_last_selection()
+        except Exception:
+            pass
+
+        try:
             if hasattr(self, "_status_listener"):
                 status_state.unsubscribe(self._status_listener)
         except Exception:

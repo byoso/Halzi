@@ -25,7 +25,8 @@ OLLAMA_HOST = settings.ollama_host
 OLLAMA_PORT = settings.ollama_port
 OLLAMA_TIMEOUT = settings.ollama_timeout
 
-BASE_DIR = Path(__file__).parent
+# BASE_DIR = Path(__file__).parent
+BASE_DIR = Path("~/.local/share/geninstaller-applications/.data/halzimir").expanduser()
 MEMORY_DIR = BASE_DIR / "memory"
 MEMORY_DIR.mkdir(exist_ok=True)
 MEMORY_TTL = 7 * 24 * 3600  # 7 days in seconds
@@ -55,6 +56,44 @@ def ensure_theme_exists(theme: str) -> Path:
 
 def list_themes() -> List[QItem]:
     return Themes.all()
+
+
+def save_last_selection() -> None:
+    """Persist active theme and session IDs to Settings."""
+    settings_record = Settings.first()
+    if settings_record is None:
+        return
+    theme_id = str(store.active_theme.q._id) if store.active_theme is not None else ""
+    session_id = str(store.active_session.q._id) if store.active_session is not None else ""
+    settings_record.update(last_theme_id=theme_id, last_session_id=session_id)
+
+
+def restore_last_selection() -> Tuple[QItem | None, QItem | None]:
+    """Load previously saved theme and session from Settings. Returns (theme, session)."""
+    settings = Settings.first()
+    themes = list_themes()
+    if not themes:
+        return None, None
+
+    theme: QItem | None = None
+    if settings is not None and settings.q.last_theme_id:
+        theme = next((t for t in themes if str(t.q._id) == str(settings.q.last_theme_id)), None)
+    if theme is None:
+        theme = themes[0]
+
+    store.active_theme = theme
+
+    session: QItem | None = None
+    if settings is not None and settings.q.last_session_id:
+        sessions = list_sessions(theme)
+        session = next((s for s in sessions if str(s.q._id) == str(settings.q.last_session_id)), None)
+
+    if session is not None:
+        activate_session(session)
+    else:
+        store.active_session = None
+
+    return theme, session
 
 
 def list_sessions(theme: QItem | None) -> List[QItem]:
@@ -102,7 +141,18 @@ def create_theme(raw_name: str) -> QItem:
 
 def delete_theme(theme: QItem) -> None:
     assert theme.q.name, "Theme must have a name"
-    shutil.rmtree(theme_dir(theme), ignore_errors=True)
+    theme_sessions = list_sessions(theme)
+
+    if store.active_session is not None:
+        active_id = store.active_session.q._id
+        if any(session.q._id == active_id for session in theme_sessions):
+            clear_active_session()
+
+    for session in theme_sessions:
+        delete_session(session)
+
+    theme_root = MEMORY_DIR / THEMES / str(theme.q.name)
+    shutil.rmtree(theme_root, ignore_errors=True)
     Themes.delete(theme)
 
 

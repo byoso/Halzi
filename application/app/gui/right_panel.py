@@ -40,12 +40,12 @@ def build_right_panel(on_memory_saved: Optional[Callable[[QItem], None]] = None)
             saved_session = core.save_memory(
                 history_snapshot,
                 theme=store.active_theme,
-                topic=source_session.q.name,
+                topic=str(source_session.q.name),
                 source_session=source_session,
             )
             if saved_session is not None and on_memory_saved is not None:
                 on_memory_saved(saved_session)
-            set_status(f"Conversation memorized in theme: {store.active_theme.q.name}")
+            set_status(f"Conversation memorized in theme: {store.active_theme.q.name} -> session: {source_session.q.name}")
         except Exception as exc:
             set_status(f"Memorize failed: {exc}")
 

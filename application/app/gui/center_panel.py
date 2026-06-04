@@ -1,18 +1,24 @@
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk as gtk, Gdk, GLib
+gi.require_version("Pango", "1.0")
+from gi.repository import Gtk as gtk, Gdk, GLib, Pango
 from pathlib import Path
 import sys
 import threading
 import queue
 import re
+from html import escape
 from typing import Callable, Optional, List, Tuple, Any
 import traceback
 from app import status_state
 from app.silly_engine.text_tools import sanitize_for_tts
 from app.gui.markdown_render import markdown_to_pango
 from app.core import process_prompt
-from app.logger import logger
+from app.gui.logger import logger
+
+
+USER_PROMPT_COLOR = "#101d2e"
+USER_PROMPT_SIZE = "large"
 
 try:
     from app.piper.main_piper import text_to_speech  # type: ignore
@@ -90,7 +96,7 @@ class CenterPanel(gtk.Box):
         self._wheel_smooth_factor = 12.0
         self._selection_edge_margin = 42
         self._follow_stream_bottom = False
-        self._markdown_mode = False
+        self._markdown_mode = True
         self._markdown_toggle_button: Optional[gtk.ToggleButton] = None
         self._output_label_meta: dict = {}
 
@@ -143,7 +149,8 @@ class CenterPanel(gtk.Box):
         mini_button.set_active(False)
         self._mini_mic_button = mini_button
 
-        markdown_button = gtk.ToggleButton(label="Text")
+        markdown_button = gtk.ToggleButton(label="Markdown")
+        markdown_button.set_active(True)
         markdown_button.set_relief(gtk.ReliefStyle.NORMAL)
         markdown_button.set_focus_on_click(False)
         markdown_button.get_style_context().add_class("halzi-header-toggle")
@@ -230,7 +237,10 @@ class CenterPanel(gtk.Box):
         row = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=0)
         row.set_hexpand(True)
 
-        label = gtk.Label(label=text)
+        # Start with empty plain text to avoid any implicit markup parsing
+        # before _render_output_label decides exactly how to render content.
+        label = gtk.Label(label="")
+        label.set_use_markup(False)
         label.set_line_wrap(True)
         label.set_selectable(True)
         label.set_xalign(1.0 if is_user else 0.0)
@@ -272,6 +282,19 @@ class CenterPanel(gtk.Box):
         for label in self._iter_output_labels():
             self._render_output_label(label)
 
+    def _is_valid_pango_markup(self, markup: str) -> bool:
+        try:
+            Pango.parse_markup(markup, -1, "\x00")
+            return True
+        except Exception:
+            return False
+
+    def _debug_markup_preview(self, kind: str, markup: str) -> None:
+        preview = markup.replace("\n", "\\n")
+        if len(preview) > 800:
+            preview = preview[:800] + "..."
+        # logger.debug(f"[{kind}] markup preview: {preview}")
+
     def _render_output_label(self, label: gtk.Label) -> None:
         meta = self._output_label_meta.get(label)
         if meta is None:
@@ -280,10 +303,33 @@ class CenterPanel(gtk.Box):
         raw_text = str(meta.get("raw_text", ""))
         is_user = bool(meta.get("is_user", False))
 
+        if is_user:
+            user_markup = (
+                f"<span foreground=\"{USER_PROMPT_COLOR}\" weight=\"bold\" size=\"{USER_PROMPT_SIZE}\">"
+                f"{escape(raw_text)}"
+                "</span>"
+            )
+            self._debug_markup_preview("user", user_markup)
+            if self._is_valid_pango_markup(user_markup):
+                label.set_use_markup(True)
+                label.set_markup(user_markup)
+            else:
+                logger.debug("[user] invalid markup, fallback to plain text")
+                label.set_use_markup(False)
+                label.set_text(raw_text)
+            return
+
         if self._markdown_mode and (not is_user):
             try:
-                label.set_use_markup(True)
-                label.set_markup(markdown_to_pango(raw_text))
+                rendered = markdown_to_pango(raw_text)
+                self._debug_markup_preview("assistant_markdown", rendered)
+                if self._is_valid_pango_markup(rendered):
+                    label.set_use_markup(True)
+                    label.set_markup(rendered)
+                else:
+                    logger.warning("[assistant_markdown] invalid markup, fallback to plain text")
+                    label.set_use_markup(False)
+                    label.set_text(raw_text)
             except Exception as exc:
                 logger.warning(f"Markdown render fallback to plain text: {exc}")
                 label.set_use_markup(False)
