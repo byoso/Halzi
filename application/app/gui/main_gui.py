@@ -17,6 +17,7 @@ from .settings_gui.main_settings import build_settings_page
 
 from app.config import APP_NAME
 from app import status_state
+from app import core
 
 
 APP_DIR = Path(__file__).resolve().parent.parent
@@ -91,14 +92,15 @@ class MainWindow(gtk.Window):
             get_header_mic_active=lambda: self.mic_button.get_active(),
             set_header_mic_active=lambda v: self.mic_button.set_active(v),
         )
-        left_panel = build_left_panel(
+        self.left_panel = build_left_panel(
             on_theme_changed=self._on_theme_changed,
+            on_session_selected=self._on_session_selected,
         )
-        right_panel = build_right_panel()
+        right_panel = build_right_panel(on_memory_saved=self._on_memory_saved)
 
-        left_panel.set_size_request(SIDEBAR_WIDTH, -1)
-        left_panel.set_hexpand(False)
-        left_panel.set_vexpand(True)
+        self.left_panel.set_size_request(SIDEBAR_WIDTH, -1)
+        self.left_panel.set_hexpand(False)
+        self.left_panel.set_vexpand(True)
         self.center_panel.set_hexpand(True)
         self.center_panel.set_vexpand(True)
         right_panel.set_size_request(SIDEBAR_WIDTH , -1)
@@ -106,7 +108,7 @@ class MainWindow(gtk.Window):
         right_panel.set_vexpand(True)
 
         # 3 columns: fixed SIDEBAR_WIDTH + flexible center + fixed SIDEBAR_WIDTH
-        content.attach(left_panel, 0, 0, 1, 1)
+        content.attach(self.left_panel, 0, 0, 1, 1)
         content.attach(self.center_panel, 1, 0, 1, 1)
         content.attach(right_panel, 2, 0, 1, 1)
 
@@ -139,6 +141,25 @@ class MainWindow(gtk.Window):
     def _on_theme_changed(self) -> None:
         if isinstance(self.center_panel, CenterPanel):
             self.center_panel.clear_conversation_view()
+
+    def _on_session_selected(self, session) -> None:
+        if not isinstance(self.center_panel, CenterPanel):
+            return
+
+        self.center_panel.clear_conversation_view()
+        if session is None:
+            return
+
+        markdown_content = core.load_session_markdown(session)
+        if markdown_content:
+            self.center_panel.append_message(markdown_content, is_user=False)
+
+    def _on_memory_saved(self, session) -> None:
+        if hasattr(self.left_panel, "active_session"):
+            self.left_panel.active_session = session
+        if hasattr(self.left_panel, "refresh_sessions"):
+            self.left_panel.refresh_sessions()
+        self._on_session_selected(session)
 
     def _on_mic_toggled(self, button: gtk.ToggleButton) -> None:
         if not isinstance(self.center_panel, CenterPanel):

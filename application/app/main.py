@@ -17,6 +17,7 @@ from app.core import ensure_ollama_running
 from app.gui.error_dialogue import show_error_dialog
 from app.gui.main_gui import MainWindow
 from app.database.db import init_db
+from app.logger import logger
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -41,4 +42,4 @@ if __name__ == "__main__":
         window.show_all()
         gtk.main()
     except KeyboardInterrupt:
-        print("\n🛑 Stopped by user")
+        logger.info("🛑 Stopped by user")

@@ -30,6 +30,7 @@ class ThemeModel(Model):
 @dataclass
 class SessionModel(Model):
     """sessions"""
+    name: str
     _created_at: int
     _updated_at: int
     message_ids: Otm = Otm("messages")
@@ -64,17 +65,6 @@ class MessageModel(Model):
     role: str  # "user", "assistant", "system"
     content: str
     session_id: Mto = Mto("sessions")
-    created_at: int = 0
-
-    class Meta(Model.Meta):
-        auto_now_add = ["created_at"]
-
-
-@dataclass
-class MemoryModel(Model):
-    """memories"""
-    content: str
-    importance: int = 0
     _created_at: int = 0
 
     class Meta(Model.Meta):

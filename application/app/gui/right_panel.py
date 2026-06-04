@@ -1,16 +1,15 @@
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk as gtk, GLib
-import threading
-from pathlib import Path
-import sys
+from gi.repository import Gtk as gtk
+from typing import Callable, Optional
 from app import status_state
 from app import core
+from app.silly_engine.silly_orm.item import QItem
 
 from app.store import store
 
 
-def build_right_panel() -> gtk.Widget:
+def build_right_panel(on_memory_saved: Optional[Callable[[QItem], None]] = None) -> gtk.Widget:
     panel = gtk.Box(orientation=gtk.Orientation.VERTICAL, spacing=0)
     panel.get_style_context().add_class("halzi-panel")
     panel.set_hexpand(True)
@@ -26,34 +25,29 @@ def build_right_panel() -> gtk.Widget:
         status_state.set_status(text)
 
     def on_memorize_clicked(_button: gtk.Button) -> None:
-        history_snapshot = core.session_memory
+        history_snapshot = list(core.session_memory)
+        source_session = store.active_session
         if not history_snapshot:
             set_status("No active conversation to memorize.")
             return
 
-        def worker():
-            try:
-                _, topic = core.process_prompt(
-                    "Answer with only 3 word to describe the topic of our last conversation:",
-                    display=False,
-                    record=False,
-                )
+        if source_session is None:
+            set_status("No active session selected. Create or select a session first.")
+            return
 
-                # Save memory and update status on GTK thread
-                def _save_and_status():
-                    try:
-                        assert store.active_theme is not None
-                        core.save_memory(history_snapshot, theme=store.active_theme, topic=topic)
-                        set_status(f"Conversation memorized in theme: {store.active_theme.q.name}")
-                    except Exception as exc:
-                        set_status(f"Memorize failed: {exc}")
-                    return False
-
-                GLib.idle_add(_save_and_status)
-            except Exception as exc:
-                GLib.idle_add(set_status, f"Memorize failed: {exc}")
-
-        threading.Thread(target=worker, daemon=True).start()
+        try:
+            assert store.active_theme is not None
+            saved_session = core.save_memory(
+                history_snapshot,
+                theme=store.active_theme,
+                topic=source_session.q.name,
+                source_session=source_session,
+            )
+            if saved_session is not None and on_memory_saved is not None:
+                on_memory_saved(saved_session)
+            set_status(f"Conversation memorized in theme: {store.active_theme.q.name}")
+        except Exception as exc:
+            set_status(f"Memorize failed: {exc}")
 
     memorize_button = gtk.Button(label="memorize session")
     memorize_button.get_style_context().add_class("halzi-memorize-button")

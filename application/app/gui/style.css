@@ -93,6 +93,7 @@
 }
 
 .halzi-add-theme-button,
+.halzi-add-session-button,
 .halzi-create-theme-button {
   background-image: none;
   background-color: #4a7fa5;
@@ -104,6 +105,7 @@
 }
 
 .halzi-add-theme-button:hover,
+.halzi-add-session-button:hover,
 .halzi-create-theme-button:hover {
   background-color: #5590b8;
 }
@@ -136,6 +138,37 @@
 }
 
 .halzi-theme-delete-button:hover {
+  background-color: #e02828;
+}
+
+.halzi-session-button {
+  background-color: #ffffff;
+  border: 2px solid #cddfd2;
+  border-radius: 8px;
+  color: #153022;
+}
+
+.halzi-session-button:hover {
+  border-color: #bfcfc4;
+}
+
+.halzi-session-button-on,
+.halzi-session-button-on:hover,
+.halzi-session-button-on:checked {
+  border: 2px solid #19944b;
+}
+
+.halzi-session-delete-button {
+  background-image: none;
+  background-color: #cc2222;
+  color: #ffffff;
+  border: 1px solid #991a1a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-weight: 700;
+}
+
+.halzi-session-delete-button:hover {
   background-color: #e02828;
 }
 
@@ -196,7 +229,7 @@
 }
 .halzi-themes-expander {
     color: #153022;
-    margin-bottom: 10px;
+    padding: 10px;
     font-size: 14px;
     background-color: transparent;
     border: solid green 1px;
@@ -208,4 +241,18 @@
 .halzi-themes-expander > box {
     /* padding-top: 5px; */
     margin-top: 5px;
+}
+
+.halzi-sessions-expander {
+  color: #153022;
+  padding: 10px;
+  font-size: 14px;
+  background-color: transparent;
+  border: solid green 1px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.halzi-sessions-expander > box {
+  margin-top: 5px;
 }

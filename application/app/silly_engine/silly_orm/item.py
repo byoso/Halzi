@@ -49,8 +49,14 @@ class QItem:
         if source_id is None:
             raise ValueError("Cannot update item without _id")
 
-        updated_data = {**self._data, **data}
+        updated_data = {**data}
         updated_data.pop("_id", None)
         self._table.update(source_id, **updated_data)
-        self._data = updated_data
+
+        refreshed_item = self._table.get_by_id(source_id)
+        if refreshed_item is None:
+            raise ValueError("Cannot refresh item after update")
+
+        self._data.clear()
+        self._data.update(refreshed_item._data)
         return self

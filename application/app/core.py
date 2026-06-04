@@ -13,7 +13,8 @@ import time
 
 from app.database import get_settings
 from app.silly_engine.silly_orm.item import QItem
-from database.db import Themes, Settings
+from app.database.db import Themes, Sessions, Settings, Files
+from app.logger import logger
 
 from app.store import store
 
@@ -43,17 +44,33 @@ def slugify_theme_name(raw_name: str) -> str:
 
 def theme_dir(theme: QItem) -> Path:
     if theme is not None:
-        return MEMORY_DIR / SESSIONS / str(theme.q.name)
-
+        return MEMORY_DIR / THEMES /str(theme.q.name) / SESSIONS
+    return MEMORY_DIR / THEMES / "default" / SESSIONS
 
 def ensure_theme_exists(theme: str) -> Path:
-    folder = MEMORY_DIR / SESSIONS / theme
+    folder = MEMORY_DIR / THEMES / theme
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
 
 def list_themes() -> List[QItem]:
     return Themes.all()
+
+
+def list_sessions(theme: QItem | None) -> List[QItem]:
+    if theme is None:
+        return []
+    return Sessions.filter(theme_id=theme.q._id).all()
+
+
+def create_session(theme: QItem, name: str) -> QItem:
+    session_name = name.strip()
+    if not session_name:
+        raise ValueError("Invalid session name")
+
+    session = Sessions.insert({"name": session_name, "theme_id": theme.q._id})
+    activate_session(session)
+    return session
 
 def get_history(theme: QItem | None) -> List[Tuple[str, str]]:
     if theme is None:
@@ -65,22 +82,14 @@ def get_history(theme: QItem | None) -> List[Tuple[str, str]]:
     files = sorted(folder.glob("*.md"), key=lambda f: f.name)
     history = []
     for file in files:
-        with open(file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("**User:**"):
-                    text = line[len("**User:**"):].strip()
-                    history.append(("User", text))
-                elif line.startswith("**Assistant:**"):
-                    text = line[len("**Assistant:**"):].strip()
-                    history.append(("Assistant", text))
+        history.extend(_parse_markdown_history(file.read_text(encoding="utf-8")))
     return history
 
 def create_theme(raw_name: str) -> QItem:
     slug = slugify_theme_name(raw_name)
     if not slug:
         raise ValueError("Invalid theme name")
-    folder = MEMORY_DIR / SESSIONS / slug
+    folder = MEMORY_DIR / THEMES / slug
     if folder.exists():
         raise ValueError("Theme already exists")
     folder.mkdir(parents=True)
@@ -97,24 +106,121 @@ def delete_theme(theme: QItem) -> None:
     Themes.delete(theme)
 
 
-def save_memory(history, theme: QItem, topic: str = "No topic"):
+def save_memory(history, theme: QItem, topic: str = "No topic", source_session: QItem | None = None) -> QItem | None:
     topic = topic.strip()
     if not history:
-        return
+        return None
     last_user_input = None
     for role, text in reversed(history):
         if role == "User":
             last_user_input = text
             break
     if last_user_input is None:
-        return
+        return None
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     output_dir = theme_dir(theme)
     output_dir.mkdir(parents=True, exist_ok=True)
     filename = output_dir / f"mem_{timestamp}_{topic[:50].replace(' ', '_')}.md"
-    with open(filename, "w") as f:
-        for role, text in history:
-            f.write(f"**{role}:** {text}\n\n")
+    try:
+        with open(filename, "w") as f:
+            for role, text in history:
+                f.write(f"**{role}:** {text}\n\n")
+    except Exception as exc:
+        logger.error(f"Failed to save memory to {filename}: {exc}")
+        return None
+    payload = {
+        "name": topic,
+        "theme_id": theme.q._id,
+    }
+    session = Sessions.insert(payload)
+    Files.insert(
+        {
+            "path": str(filename),
+            "is_dir": False,
+            "readable": True,
+            "writable": True,
+            "executable": False,
+            "session_id": session.q._id,
+        }
+    )
+
+    if source_session is not None and source_session.q._id != session.q._id:
+        delete_session(source_session)
+
+    activate_session(session)
+    return session
+
+
+def _parse_markdown_history(markdown_content: str) -> List[Tuple[str, str]]:
+    history: List[Tuple[str, str]] = []
+    current_role: str | None = None
+    current_lines: List[str] = []
+
+    def flush_current() -> None:
+        nonlocal current_role, current_lines
+        if current_role is None:
+            return
+        history.append((current_role, "\n".join(current_lines).strip()))
+        current_role = None
+        current_lines = []
+
+    for line in markdown_content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("**User:**"):
+            flush_current()
+            current_role = "User"
+            current_lines = [stripped[len("**User:**"):].strip()]
+        elif stripped.startswith("**Assistant:**"):
+            flush_current()
+            current_role = "Assistant"
+            current_lines = [stripped[len("**Assistant:**"):].strip()]
+        elif current_role is not None:
+            current_lines.append(line)
+
+    flush_current()
+    return history
+
+
+def _get_session_file_record(session: QItem) -> QItem | None:
+    return Files.filter_first(session_id=session.q._id)
+
+
+def load_session_markdown(session: QItem) -> str:
+    file_record = _get_session_file_record(session)
+    if file_record is None:
+        return ""
+    path = Path(str(file_record.q.path))
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+def activate_session(session: QItem | None) -> str:
+    store.active_session = session
+    session_memory.clear()
+    if session is None:
+        return ""
+
+    markdown_content = load_session_markdown(session)
+    session_memory.extend(_parse_markdown_history(markdown_content))
+    return markdown_content
+
+
+def clear_active_session() -> None:
+    activate_session(None)
+
+
+def delete_session(session: QItem) -> None:
+    file_record = _get_session_file_record(session)
+    if file_record is not None:
+        file_path = Path(str(file_record.q.path))
+        if file_path.exists():
+            try:
+                file_path.unlink()
+            except OSError as exc:
+                logger.warning(f"Failed to delete session file {file_path}: {exc}")
+        Files.delete(file_record)
+    Sessions.delete(session)
 
 
 def is_memory_file_to_load(file):
@@ -144,15 +250,7 @@ def load_memory(theme: QItem | None) -> List[Tuple[str, str]]:
     for file in folder.glob("*.md"):
         if not is_memory_file_to_load(file):
             continue
-        with open(file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("**User:**"):
-                    text = line[len("**User:**"):].strip()
-                    old_memories.append(("User", text))
-                elif line.startswith("**Assistant:**"):
-                    text = line[len("**Assistant:**"):].strip()
-                    old_memories.append(("Assistant", text))
+        old_memories.extend(_parse_markdown_history(file.read_text(encoding="utf-8")))
     return old_memories
 
 
@@ -165,6 +263,8 @@ session_memory = []
 initial_context = load_initial_context()
 
 def get_session_memory() -> List[Tuple[str, str]]:
+    if store.active_session is not None:
+        return list(session_memory)
     if store.active_theme is None:
         return []
     memory = load_memory(store.active_theme)
@@ -175,7 +275,12 @@ def build_input_for_api(prompt: str) -> str:
     if initial_context:
         parts.append(initial_context)
         parts.append("")
-    for role, text in get_history(store.active_theme) + session_memory:
+    if store.active_session is not None:
+        source_history = list(session_memory)
+    else:
+        source_history = get_history(store.active_theme) + session_memory
+
+    for role, text in source_history:
         if role == "User":
             parts.append(f"User: {text}")
         else:
@@ -210,7 +315,7 @@ def ensure_ollama_running(model: str = OLLAMA_MODEL, timeout: int = 30, poll_int
 
     # Ensure the `ollama` CLI exists
     if shutil.which("ollama") is None:
-        print(f"ollama CLI not found in PATH; cannot start model '{model}'.")
+        logger.error(f"ollama CLI not found in PATH; cannot start model '{model}'.")
         return False
 
     try:
@@ -224,7 +329,7 @@ def ensure_ollama_running(model: str = OLLAMA_MODEL, timeout: int = 30, poll_int
     except Exception as exc:
         if lf:
             lf.close()
-        print(f"Failed to start ollama model '{model}': {exc}")
+        logger.error(f"Failed to start ollama model '{model}': {exc}")
         return False
 
     # Poll until the port is open or timeout
@@ -239,7 +344,7 @@ def ensure_ollama_running(model: str = OLLAMA_MODEL, timeout: int = 30, poll_int
     # timed out
     if lf:
         lf.close()
-    print(f"Timed out waiting for ollama on port {OLLAMA_PORT} after {OLLAMA_TIMEOUT} seconds. See {log_file} for output.")
+    logger.error(f"Timed out waiting for ollama on port {OLLAMA_PORT} after {OLLAMA_TIMEOUT} seconds. See {log_file} for output.")
     return False
 
 def process_prompt(
@@ -272,7 +377,7 @@ def process_prompt(
             piece = chunk["choices"][0].get("text") or chunk["choices"][0].get("content")
         if piece:
             if display:
-                print(piece, end="", flush=True)
+                logger.debug(piece)
             if on_chunk is not None:
                 try:
                     on_chunk(piece)

@@ -53,12 +53,17 @@ def markdown_to_pango(text: str) -> str:
     if not text:
         return ""
 
+    # Drop control characters that can break Pango markup parsing.
+    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
+
     lines = text.splitlines()
     out_lines = []
     in_code_block = False
     code_language = ""
+    i = 0
 
-    for line in lines:
+    while i < len(lines):
+        line = lines[i]
         fence_match = re.match(r"^\s*```\s*([A-Za-z0-9_+-]+)?\s*$", line)
         if fence_match:
             in_code_block = not in_code_block
@@ -66,16 +71,94 @@ def markdown_to_pango(text: str) -> str:
                 code_language = (fence_match.group(1) or "").lower()
             else:
                 code_language = ""
+            i += 1
             continue
 
         if in_code_block:
             out_lines.append(_highlight_code_line(line, code_language))
+            i += 1
+            continue
+
+        if i + 1 < len(lines) and _is_table_row(lines[i]) and _is_table_separator(lines[i + 1]):
+            table_lines = [lines[i], lines[i + 1]]
+            j = i + 2
+            while j < len(lines) and _is_table_row(lines[j]):
+                table_lines.append(lines[j])
+                j += 1
+            out_lines.extend(_table_to_markup_lines(table_lines))
+            i = j
             continue
 
         line_markup = _line_to_markup(line)
         out_lines.append(line_markup)
+        i += 1
 
     return "\n".join(out_lines)
+
+
+def _is_table_row(line: str) -> bool:
+    stripped = line.strip()
+    if "|" not in stripped:
+        return False
+    cells = _split_table_cells(stripped)
+    return len(cells) >= 2
+
+
+def _is_table_separator(line: str) -> bool:
+    cells = _split_table_cells(line.strip())
+    if not cells:
+        return False
+    for cell in cells:
+        if not re.match(r"^:?-{3,}:?$", cell.strip()):
+            return False
+    return True
+
+
+def _split_table_cells(line: str) -> list[str]:
+    stripped = line.strip()
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|"):
+        stripped = stripped[:-1]
+    return [cell.strip() for cell in stripped.split("|")]
+
+
+def _table_to_markup_lines(lines: list[str]) -> list[str]:
+    rows = [_split_table_cells(line) for line in lines]
+    if len(rows) < 2:
+        return [_inline_markdown_to_pango(line) for line in lines]
+
+    data_rows = [rows[0]] + rows[2:]
+    col_count = max((len(row) for row in data_rows), default=0)
+    if col_count == 0:
+        return []
+
+    widths = [0] * col_count
+    for row in data_rows:
+        for idx in range(col_count):
+            value = row[idx] if idx < len(row) else ""
+            widths[idx] = max(widths[idx], len(value))
+
+    out = []
+    out.append(_table_row_to_tt(rows[0], widths))
+    out.append(_table_separator_to_tt(widths))
+    for row in rows[2:]:
+        out.append(_table_row_to_tt(row, widths))
+    return out
+
+
+def _table_row_to_tt(row: list[str], widths: list[int]) -> str:
+    padded = []
+    for idx, width in enumerate(widths):
+        value = row[idx] if idx < len(row) else ""
+        padded.append(value.ljust(width))
+    raw = "| " + " | ".join(padded) + " |"
+    return f"<tt>{escape(raw)}</tt>"
+
+
+def _table_separator_to_tt(widths: list[int]) -> str:
+    raw = "|-" + "-|-".join("-" * width for width in widths) + "-|"
+    return f"<tt>{escape(raw)}</tt>"
 
 
 def _line_to_markup(line: str) -> str:

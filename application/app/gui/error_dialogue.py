@@ -5,6 +5,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk as gtk
 
+from app.gui.logger import logger
+
 
 def show_error_dialog(message: str, title: str = "Error") -> None:
     """Show a simple modal error dialog with the provided message.
@@ -23,8 +25,8 @@ def show_error_dialog(message: str, title: str = "Error") -> None:
         dialog.run()
         dialog.destroy()
     except Exception as exc:
-        # Fallback to printing if GTK is unavailable
-        print(f"{title}: {message} (GUI unavailable: {exc})")
+        # Fallback to logging if GTK is unavailable
+        logger.error(f"{title}: {message} (GUI unavailable: {exc})")
 
 if __name__ == "__main__":
     # Test the error dialog

@@ -13,7 +13,6 @@ from app.database.models.models_llm import (
     ToolModel,
     SessionModel,
     MessageModel,
-    MemoryModel,
     ThemeModel,
     PersonalityModel,
     FileModel,
@@ -33,7 +32,6 @@ Settings = db.table("settings", SettingsModel)
 Tools = db.table("tools", ToolModel)
 Sessions = db.table("sessions", SessionModel)
 Messages = db.table("messages", MessageModel)
-Memories = db.table("memories", MemoryModel)
 Themes = db.table("themes", ThemeModel)
 Personalities = db.table("personalities", PersonalityModel)
 Files = db.table("files", FileModel)

@@ -4,6 +4,7 @@ import wave
 from faster_whisper import WhisperModel
 
 from app.database import get_settings
+from app.vad.logger import logger
 
 settings = get_settings()
 
@@ -57,7 +58,7 @@ def process_audio_buffer(audio_buffer, sample_rate: int = 16000):
 
     if len(audio_buffer) == 0:
         return ""
-    print("BUFFER SIZE:", len(audio_buffer))
+    logger.debug(f"BUFFER SIZE: {len(audio_buffer)}")
     # 1. sauvegarde temporaire wav
     wav_path = save_wav(audio_buffer, sample_rate)
 
@@ -73,6 +74,7 @@ def process_audio_buffer(audio_buffer, sample_rate: int = 16000):
     text = " ".join(segment.text for segment in segments).strip()
 
     # 4. log debug
-    print("\n🗣️ TRANSCRIPTION:")
+    logger.debug("\n🗣️ TRANSCRIPTION:")
+    logger.debug(text)
 
     return text

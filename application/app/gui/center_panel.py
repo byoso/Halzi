@@ -156,6 +156,8 @@ class CenterPanel(gtk.Box):
 
         self.input_view = gtk.TextView()
         self.input_view.set_wrap_mode(gtk.WrapMode.WORD_CHAR)
+        self.input_view.set_left_margin(20)
+        self.input_view.set_right_margin(20)
         self.input_view.get_style_context().add_class("halzi-input-text")
 
         input_scroll = gtk.ScrolledWindow()
@@ -279,8 +281,13 @@ class CenterPanel(gtk.Box):
         is_user = bool(meta.get("is_user", False))
 
         if self._markdown_mode and (not is_user):
-            label.set_use_markup(True)
-            label.set_markup(markdown_to_pango(raw_text))
+            try:
+                label.set_use_markup(True)
+                label.set_markup(markdown_to_pango(raw_text))
+            except Exception as exc:
+                logger.warning(f"Markdown render fallback to plain text: {exc}")
+                label.set_use_markup(False)
+                label.set_text(raw_text)
         else:
             label.set_use_markup(False)
             label.set_text(raw_text)

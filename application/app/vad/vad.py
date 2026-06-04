@@ -13,6 +13,7 @@ import threading
 
 from app.vad.input_voice import process_audio_buffer
 from app.database import get_settings
+from app.vad.logger import logger
 
 settings = get_settings()
 SILENCE_DURATION_FOR_VALIDATION = settings.silence_duration_for_validation
@@ -134,7 +135,7 @@ class AudioStream:
 
     def callback(self, indata, frames, time_info, status):
         if status:
-            print(status)
+            logger.debug(status)
         if _capture_pause_event.is_set():
             return
         if is_tts_active():
@@ -185,7 +186,7 @@ def iter_voice_prompts(vad_iterator=None, stop_event: Optional[threading.Event] 
     speech_start = None
     audio_buffer = []
 
-    print("🎤 Listening... (Ctrl+C to stop)")
+    logger.debug("🎤 Listening... (Ctrl+C to stop)")
 
     with AudioStream() as stream:
         # signal that VAD is active and listening
@@ -215,7 +216,7 @@ def iter_voice_prompts(vad_iterator=None, stop_event: Optional[threading.Event] 
             if speech_dict and "start" in speech_dict:
                 speech_start = time.time()
                 audio_buffer = []
-                print("🟢 Speech START")
+                logger.debug("🟢 Speech START")
 
             if speech_start is not None:
                 audio_buffer.append(audio.copy())
@@ -227,17 +228,17 @@ def iter_voice_prompts(vad_iterator=None, stop_event: Optional[threading.Event] 
                     continue
 
                 full_audio = np.concatenate(audio_buffer)
-                print(f"📦 BUFFER SIZE: {len(full_audio)} samples")
+                logger.debug(f"📦 BUFFER SIZE: {len(full_audio)} samples")
 
                 text = process_audio_buffer(audio_buffer=full_audio)
                 if is_valid_text(text):
-                    print(text)
+                    logger.info(text)
                     yield text
                 else:
-                    print("❌ ignored noise")
+                    logger.debug("❌ ignored noise")
 
                 duration = time.time() - speech_start
-                print(f"🔴 Speech END ({duration:.2f}s)")
+                logger.debug(f"🔴 Speech END ({duration:.2f}s)")
 
                 speech_start = None
                 audio_buffer = []
