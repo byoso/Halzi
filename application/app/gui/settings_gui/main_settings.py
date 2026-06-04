@@ -8,7 +8,7 @@ from gi.repository import Gtk as gtk
 from app.database.models.models_settings import SettingsModel
 from app.gui.error_dialogue import show_error_dialog
 from app.settings import get_settings, update_settings
-from app.ollama.core import list_installed_models
+from app.core import list_installed_models
 
 
 FIELD_CHOICES = {

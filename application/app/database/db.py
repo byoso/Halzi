@@ -9,7 +9,15 @@ from app.config import LOG_LEVEL
 from app.database.models.models_settings import SettingsModel
 from app.silly_engine.silly_orm.db import SillyDb, SillyDbError
 from app.database.logger import logger
-from app.database.models.models_llm import ToolModel, SessionModel, MessageModel, MemoryModel, ThemeModel
+from app.database.models.models_llm import (
+    ToolModel,
+    SessionModel,
+    MessageModel,
+    MemoryModel,
+    ThemeModel,
+    PersonalityModel,
+    FileModel,
+)
 
 logger = Logger("app.database", display_level=False)
 logger.set_level(LOG_LEVEL)
@@ -27,7 +35,8 @@ Sessions = db.table("sessions", SessionModel)
 Messages = db.table("messages", MessageModel)
 Memories = db.table("memories", MemoryModel)
 Themes = db.table("themes", ThemeModel)
-
+Personalities = db.table("personalities", PersonalityModel)
+Files = db.table("files", FileModel)
 
 def init_db() -> None:
     try:
@@ -40,6 +49,9 @@ def init_db() -> None:
 
 def get_settings() -> SettingsModel:
     settings = Settings.first()
+    if settings is None:
+        Settings.insert(asdict(SettingsModel()))
+        settings = Settings.first()
     if settings is None:
         raise ValueError("Settings not found in database")
     return settings.to_model()

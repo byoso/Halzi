@@ -13,7 +13,7 @@ PARENT = ROOT.parent
 if str(PARENT) not in sys.path:
     sys.path.insert(0, str(PARENT))
 
-from app.ollama.core import ensure_ollama_running
+from app.core import ensure_ollama_running
 from app.gui.error_dialogue import show_error_dialog
 from app.gui.main_gui import MainWindow
 from app.database.db import init_db

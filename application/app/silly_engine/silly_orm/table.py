@@ -9,6 +9,7 @@ from .relations.mto import Mto
 from .relations.otm import Otm
 from .relations.oto import Oto
 from .tools import SillyDbError
+from .accessor import AccessorAttrValue
 
 class Table:
     def __init__(self, db, name: str, model: Type):
@@ -331,6 +332,10 @@ class Table:
             if not self.db._in_transaction:
                 self.db.connector.rollback()
             raise
+        item = self.get_by_id(source_id)
+        if item is None:
+            raise SillyDbError("Failed to retrieve item after insert")
+        return item
 
     def update(self, _id: str | None = None, **data):
         if _id is None:
@@ -369,7 +374,7 @@ class Table:
                 self.db.connector.rollback()
             raise
 
-    def delete_by_id(self, _id: str):
+    def delete_by_id(self, _id: str | AccessorAttrValue):
         try:
             self._cleanup_relations_for_delete(_id)
             self.db.connector.execute(f"DELETE FROM {self.name} WHERE _id=?", (_id,))
@@ -411,8 +416,9 @@ class Table:
             _id = item_or_id
 
         self.delete_by_id(_id)
+        return _id
 
-    def get_by_id(self, _id: str):
+    def get_by_id(self, _id: str | AccessorAttrValue):
         row = self._fetch_row_data(_id=_id)
         if row is None:
             return None
@@ -429,6 +435,9 @@ class Table:
 
     def filter(self, **kwargs):
         return Query(self).filter(**kwargs)
+
+    def all(self):
+        return Query(self).all()
 
     def first(self):
         return Query(self).first()

@@ -92,7 +92,7 @@ class MainWindow(gtk.Window):
             set_header_mic_active=lambda v: self.mic_button.set_active(v),
         )
         left_panel = build_left_panel(
-            on_theme_changed=lambda _theme: self._on_theme_changed(self.center_panel),
+            on_theme_changed=self._on_theme_changed,
         )
         right_panel = build_right_panel()
 
@@ -136,9 +136,9 @@ class MainWindow(gtk.Window):
     def set_status(self, text: str) -> None:
         status_state.set_status(text)
 
-    def _on_theme_changed(self, center_panel: gtk.Widget) -> None:
-        if isinstance(center_panel, CenterPanel):
-            center_panel.clear_conversation_view()
+    def _on_theme_changed(self) -> None:
+        if isinstance(self.center_panel, CenterPanel):
+            self.center_panel.clear_conversation_view()
 
     def _on_mic_toggled(self, button: gtk.ToggleButton) -> None:
         if not isinstance(self.center_panel, CenterPanel):

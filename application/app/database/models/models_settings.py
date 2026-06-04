@@ -31,6 +31,11 @@ class SettingsModel(Model):
     device: str = "cpu"
     compute_type: str = "int8"
 
+    # ===========================
+
+    last_theme_id: str = ""
+    last_session_id: str = ""
+
     class Meta(Model.Meta):
         singleton = True
 

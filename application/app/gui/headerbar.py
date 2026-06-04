@@ -36,7 +36,7 @@ def _build_toggle_button(icon_name: str) -> gtk.ToggleButton:
 
 def _open_memory_folder() -> None:
     project_root = Path(__file__).resolve().parent.parent
-    memory_dir = project_root / "ollama" / "memory"
+    memory_dir = project_root / "memory"
     memory_dir.mkdir(parents=True, exist_ok=True)
     subprocess.run(["xdg-open", str(memory_dir)], check=False)
 

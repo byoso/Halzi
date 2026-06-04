@@ -12,12 +12,20 @@ class ToolModel(Model):
     permission_level: int = 0  # 0: all, 1: admin only, etc.
 
 @dataclass
-class PersonnalityModel(Model):
-    """personnalities"""
+class PersonalityModel(Model):
+    """personalities"""
+    name: str = "Chloe"
+    description: str = "A friendly and helpful assistant."
+    file: str = ""  # path to the Markdown file of this personnality
+    theme_ids: Otm = Otm("themes")
+
+@dataclass
+class ThemeModel(Model):
+    """themes"""
     name: str
     description: str
-    file: str  # path to the Markdown file of this personnality
-
+    session_ids: Otm = Otm("sessions")
+    personnality_ids: Mto = Mto("personalities")
 
 @dataclass
 class SessionModel(Model):
@@ -26,6 +34,7 @@ class SessionModel(Model):
     _updated_at: int
     message_ids: Otm = Otm("messages")
     theme_id: Mto = Mto("themes")
+    file_ids: Otm = Otm("files")
 
     class Meta(Model.Meta):
         auto_now_add = ["_created_at"]
@@ -40,12 +49,25 @@ class SessionModel(Model):
         return datetime.fromtimestamp(self._updated_at, tz=timezone.utc)
 
 @dataclass
+class FileModel(Model):
+    """files"""
+    path: str = ""
+    is_dir: bool = False
+    readable: bool = False
+    writable: bool = False
+    executable: bool = False
+    session_id: Mto = Mto("sessions")
+
+@dataclass
 class MessageModel(Model):
     """messages"""
     role: str  # "user", "assistant", "system"
     content: str
-    timestamp: float
     session_id: Mto = Mto("sessions")
+    created_at: int = 0
+
+    class Meta(Model.Meta):
+        auto_now_add = ["created_at"]
 
 
 @dataclass
@@ -61,10 +83,3 @@ class MemoryModel(Model):
     @property
     def created_at(self) -> datetime:
         return datetime.fromtimestamp(self._created_at, tz=timezone.utc)
-
-@dataclass
-class ThemeModel(Model):
-    """themes"""
-    name: str
-    description: str
-    session_ids: Otm = Otm("sessions")

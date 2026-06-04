@@ -42,3 +42,15 @@ class QItem:
     def to_json(self) -> str:
         """Convert item to JSON string."""
         return json.dumps(self._data, default=str)
+
+    def update(self, **data):
+        """Update item with new data and save to database."""
+        source_id = self._data.get("_id")
+        if source_id is None:
+            raise ValueError("Cannot update item without _id")
+
+        updated_data = {**self._data, **data}
+        updated_data.pop("_id", None)
+        self._table.update(source_id, **updated_data)
+        self._data = updated_data
+        return self

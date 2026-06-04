@@ -5,16 +5,9 @@ import threading
 from pathlib import Path
 import sys
 from app import status_state
+from app import core
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-OLLAMA_DIR = PROJECT_ROOT / "ollama"
-if str(OLLAMA_DIR) not in sys.path:
-    sys.path.append(str(OLLAMA_DIR))
-
-try:
-    import core  # type: ignore
-except Exception:
-    core = None
+from app.store import store
 
 
 def build_right_panel() -> gtk.Widget:
@@ -33,18 +26,13 @@ def build_right_panel() -> gtk.Widget:
         status_state.set_status(text)
 
     def on_memorize_clicked(_button: gtk.Button) -> None:
-        if core is None:
-            set_status("Memorize failed: cannot import ollama core.")
-            return
-
-        history_snapshot = list(core.session_memory)
+        history_snapshot = core.session_memory
         if not history_snapshot:
             set_status("No active conversation to memorize.")
             return
 
         def worker():
             try:
-                active_theme = core.get_active_theme()
                 _, topic = core.process_prompt(
                     "Answer with only 3 word to describe the topic of our last conversation:",
                     display=False,
@@ -54,8 +42,9 @@ def build_right_panel() -> gtk.Widget:
                 # Save memory and update status on GTK thread
                 def _save_and_status():
                     try:
-                        core.save_memory(history_snapshot, topic, theme=active_theme)
-                        set_status(f"Conversation memorized in theme: {active_theme}")
+                        assert store.active_theme is not None
+                        core.save_memory(history_snapshot, theme=store.active_theme, topic=topic)
+                        set_status(f"Conversation memorized in theme: {store.active_theme.q.name}")
                     except Exception as exc:
                         set_status(f"Memorize failed: {exc}")
                     return False

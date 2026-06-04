@@ -12,6 +12,10 @@ import subprocess
 import time
 
 from app.database import get_settings
+from app.silly_engine.silly_orm.item import QItem
+from database.db import Themes, Settings
+
+from app.store import store
 
 settings = get_settings()
 
@@ -25,8 +29,9 @@ MEMORY_DIR = BASE_DIR / "memory"
 MEMORY_DIR.mkdir(exist_ok=True)
 MEMORY_TTL = 7 * 24 * 3600  # 7 days in seconds
 MEMORY_TTL_ERASE = 30 * 24 * 3600  # 30 days in seconds
-INITIAL_CONTEXT_FILE = MEMORY_DIR / "init_personnality.md"
-DEFAULT_THEME = "just_chat"
+INITIAL_CONTEXT_FILE = MEMORY_DIR / "personalities" / "init_personality.md"
+THEMES = "Themes"
+SESSIONS = "sessions"
 
 
 def slugify_theme_name(raw_name: str) -> str:
@@ -36,74 +41,63 @@ def slugify_theme_name(raw_name: str) -> str:
     return normalized.strip("-")
 
 
-def theme_dir(theme: Optional[str] = None) -> Path:
-    chosen = theme or active_theme
-    return MEMORY_DIR / chosen
+def theme_dir(theme: QItem) -> Path:
+    if theme is not None:
+        return MEMORY_DIR / SESSIONS / str(theme.q.name)
 
 
 def ensure_theme_exists(theme: str) -> Path:
-    folder = MEMORY_DIR / theme
+    folder = MEMORY_DIR / SESSIONS / theme
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
 
-def list_themes() -> List[str]:
-    ensure_theme_exists(DEFAULT_THEME)
-    themes = [entry.name for entry in MEMORY_DIR.iterdir() if entry.is_dir()]
-    themes = sorted(set(themes))
-    if DEFAULT_THEME in themes:
-        themes.remove(DEFAULT_THEME)
-    return [DEFAULT_THEME] + themes
+def list_themes() -> List[QItem]:
+    return Themes.all()
 
+def get_history(theme: QItem | None) -> List[Tuple[str, str]]:
+    if theme is None:
+        return []
+    # read all files in the memory of the theme and sort by name (which starts with timestamp)
+    folder = theme_dir(theme)
+    if not folder.exists():
+        return []
+    files = sorted(folder.glob("*.md"), key=lambda f: f.name)
+    history = []
+    for file in files:
+        with open(file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("**User:**"):
+                    text = line[len("**User:**"):].strip()
+                    history.append(("User", text))
+                elif line.startswith("**Assistant:**"):
+                    text = line[len("**Assistant:**"):].strip()
+                    history.append(("Assistant", text))
+    return history
 
-def create_theme(raw_name: str) -> str:
+def create_theme(raw_name: str) -> QItem:
     slug = slugify_theme_name(raw_name)
     if not slug:
         raise ValueError("Invalid theme name")
-    folder = MEMORY_DIR / slug
+    folder = MEMORY_DIR / SESSIONS / slug
     if folder.exists():
         raise ValueError("Theme already exists")
     folder.mkdir(parents=True)
-    return slug
+    theme = Themes.insert({"name": slug})
+    settings = Settings.first()
+    assert settings is not None, "Settings should exist in database"
+    settings.update(**{"last_theme_id": theme.q._id})
+    return theme
 
 
-def delete_theme(theme: str) -> str:
-    global active_theme, history, session_memory
-
-    if theme == DEFAULT_THEME:
-        raise ValueError("Cannot delete just_chat")
-
-    folder = MEMORY_DIR / theme
-    if folder.exists() and folder.is_dir():
-        shutil.rmtree(folder)
-
-    if active_theme == theme:
-        active_theme = DEFAULT_THEME
-        ensure_theme_exists(active_theme)
-        history = load_memory(active_theme)
-        session_memory = []
-
-    return active_theme
+def delete_theme(theme: QItem) -> None:
+    assert theme.q.name, "Theme must have a name"
+    shutil.rmtree(theme_dir(theme), ignore_errors=True)
+    Themes.delete(theme)
 
 
-def set_active_theme(theme: str) -> str:
-    global active_theme, history, session_memory
-
-    if not theme:
-        theme = DEFAULT_THEME
-
-    ensure_theme_exists(theme)
-    active_theme = theme
-    history = load_memory(active_theme)
-    session_memory = []
-    return active_theme
-
-
-def get_active_theme() -> str:
-    return active_theme
-
-
-def save_memory(history, topic: str = "No topic", theme: Optional[str] = None):
+def save_memory(history, theme: QItem, topic: str = "No topic"):
     topic = topic.strip()
     if not history:
         return
@@ -137,11 +131,13 @@ def is_memory_file_to_load(file):
         return False
     return True
 
-def load_memory(theme: Optional[str] = None) -> List[Tuple[str, str]]:
+def load_memory(theme: QItem | None) -> List[Tuple[str, str]]:
     """
     Load memory files from the MEMORY_DIR.
     Returns a list of tuples containing the role and text.
     """
+    if theme is None:
+        return []
     old_memories = []
     folder = theme_dir(theme)
     folder.mkdir(parents=True, exist_ok=True)
@@ -165,18 +161,21 @@ def load_initial_context() -> str:
         return ""
     return INITIAL_CONTEXT_FILE.read_text(encoding="utf-8").strip()
 
-active_theme = DEFAULT_THEME
-ensure_theme_exists(active_theme)
-history = load_memory(active_theme)
 session_memory = []
 initial_context = load_initial_context()
+
+def get_session_memory() -> List[Tuple[str, str]]:
+    if store.active_theme is None:
+        return []
+    memory = load_memory(store.active_theme)
+    return memory + session_memory
 
 def build_input_for_api(prompt: str) -> str:
     parts = []
     if initial_context:
         parts.append(initial_context)
         parts.append("")
-    for role, text in history + session_memory:
+    for role, text in get_history(store.active_theme) + session_memory:
         if role == "User":
             parts.append(f"User: {text}")
         else:

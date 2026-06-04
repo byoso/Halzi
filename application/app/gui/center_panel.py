@@ -11,41 +11,38 @@ import traceback
 from app import status_state
 from app.silly_engine.text_tools import sanitize_for_tts
 from app.gui.markdown_render import markdown_to_pango
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-OLLAMA_DIR = PROJECT_ROOT / "ollama"
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
-if str(OLLAMA_DIR) not in sys.path:
-    sys.path.append(str(OLLAMA_DIR))
-
-try:
-    from core import process_prompt  # type: ignore
-except Exception:
-    process_prompt = None
+from app.core import process_prompt
+from app.logger import logger
 
 try:
     from app.piper.main_piper import text_to_speech  # type: ignore
 except Exception:
     text_to_speech = None
+    logger.warning("Piper TTS functions are not available. TTS features will be disabled.")
+
+
 try:
     from app.piper.main_piper import stop_all_playback  # type: ignore
 except Exception:
     stop_all_playback = None
+    logger.warning("Piper stop all playback import failed.")
 try:
     from app.piper.main_piper import synthesize_text_to_audio, play_audio_buffer  # type: ignore
 except Exception:
     synthesize_text_to_audio = None
     play_audio_buffer = None
+    logger.warning("Piper synthesize/playback functions are not available. TTS features will be disabled.")
 try:
     from app.vad.vad import set_tts_active  # type: ignore
 except Exception:
     set_tts_active = None
+    logger.warning("VAD TTS active function import failed. VAD-TTS integration will be disabled.")
 try:
     from app.vad.vad import pause_audio_capture, resume_audio_capture  # type: ignore
 except Exception:
     pause_audio_capture = None
     resume_audio_capture = None
+    logger.warning("VAD audio capture control functions are not available. VAD-TTS integration will be disabled.")
 
 class CenterPanel(gtk.Box):
     def __init__(
