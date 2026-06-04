@@ -4,7 +4,7 @@ from .relations.otm import Otm
 from .relations.mtm import Mtm
 from .relations.oto import Oto
 from .relations.mto import Mto
-from .relation_views import QList, QRef
+from .relation_models import QList, QRef
 from .tools import SillyDbError
 
 

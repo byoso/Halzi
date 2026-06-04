@@ -3,12 +3,12 @@ from dataclasses import fields
 from app.database.db import Settings
 from app.database.models.models_settings import SettingsModel
 
-
-ALLOWED_SETTINGS_KEYS = {
+EXCLUDED_SETTINGS_KEYS = ["last_theme_id", "last_session_id"]
+ALLOWED_SETTINGS_KEYS = [
     field.name
     for field in fields(SettingsModel)
-    if field.name != "_id" and not field.name.startswith("_")
-}
+    if field.name != "_id" and not field.name.startswith("_") and field.name not in EXCLUDED_SETTINGS_KEYS
+]
 
 
 def get_settings():

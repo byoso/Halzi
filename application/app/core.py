@@ -13,7 +13,7 @@ import time
 
 from app.database import get_settings
 from app.silly_engine.silly_orm.item import QItem
-from app.database.db import Themes, Sessions, Settings, Files
+from app.database.db import Themes, Sessions, Settings, SessionMemories
 from app.logger import logger
 
 from app.store import store
@@ -160,6 +160,7 @@ def save_memory(history, theme: QItem, topic: str = "No topic", source_session: 
     topic = topic.strip()
     if not history:
         return None
+
     last_user_input = None
     for role, text in reversed(history):
         if role == "User":
@@ -167,37 +168,76 @@ def save_memory(history, theme: QItem, topic: str = "No topic", source_session: 
             break
     if last_user_input is None:
         return None
+
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    output_dir = theme_dir(theme)
+
+    # Clean the topic name to make it safe for filesystem directory naming
+    safe_session_dirname = topic[:50].replace(' ', '_')
+    output_dir = theme_dir(theme) / safe_session_dirname
     output_dir.mkdir(parents=True, exist_ok=True)
-    filename = output_dir / f"mem_{timestamp}_{topic[:50].replace(' ', '_')}.md"
+
+    # ------------------------------------------------------------------------
+    # FIX: Filter history to only save NEW messages (the delta)
+    # ------------------------------------------------------------------------
+    # 1. Read what has already been saved in this directory
+    existing_content = ""
+    md_files = sorted(output_dir.glob("*.md"))
+    for file_path in md_files:
+        try:
+            existing_content += file_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.error(f"Failed to read existing memory file {file_path}: {exc}")
+
+    # 2. Only keep messages that are NOT already in the existing files
+    new_messages = []
+    for role, text in history:
+        message_format = f"**{role}:** {text}"
+        # If this exact message structure isn't in our cumulative logs yet, it's new
+        if message_format not in existing_content:
+            new_messages.append((role, text))
+
+    # If there are no new messages to append, we can safely skip creating an empty file
+    if not new_messages:
+        logger.debug("No new messages to save for this session snapshot.")
+        # We still return the session to ensure database references stay intact
+        return source_session if source_session else Sessions.filter(name=topic).first()
+    # ------------------------------------------------------------------------
+
+    # The specific file for this new delta snapshot
+    filename = output_dir / f"mem_{timestamp}.md"
+
     try:
         with open(filename, "w") as f:
-            for role, text in history:
+            for role, text in new_messages: # Save ONLY the new messages
                 f.write(f"**{role}:** {text}\n\n")
     except Exception as exc:
         logger.error(f"Failed to save memory to {filename}: {exc}")
         return None
+
     payload = {
         "name": topic,
         "theme_id": theme.q._id,
     }
-    session = Sessions.insert(payload)
-    Files.insert(
-        {
-            "path": str(filename),
-            "is_dir": False,
-            "readable": True,
-            "writable": True,
-            "executable": False,
-            "session_id": session.q._id,
-        }
-    )
 
-    if source_session is not None and source_session.q._id != session.q._id:
-        delete_session(source_session)
+    if source_session is not None:
+        Sessions.update(payload).filter(_id=source_session.q._id).execute()
+        session = source_session
+    else:
+        session = Sessions.insert(payload)
 
-    activate_session(session)
+    # Check if this directory is already registered to avoid duplicate rows in SessionMemories
+    existing_memory = SessionMemories.filter(session_id=session.q._id, path=str(output_dir)).first()
+    if not existing_memory:
+        SessionMemories.insert(
+            {
+                "path": str(output_dir),
+                "session_id": session.q._id,
+            }
+        )
+
+    if source_session is None:
+        activate_session(session)
+
     return session
 
 
@@ -232,22 +272,45 @@ def _parse_markdown_history(markdown_content: str) -> List[Tuple[str, str]]:
 
 
 def _get_session_file_record(session: QItem) -> QItem | None:
-    return Files.filter_first(session_id=session.q._id)
+    logger.debug(f"Looking up session file record for session ID {session.q._id}")
+    return SessionMemories.filter_first(session_id=session.q._id)
 
 
 def load_session_markdown(session: QItem) -> str:
+    logger.debug(f"loading session memory for {session.q.name}")
     file_record = _get_session_file_record(session)
+    logger.debug(f"file record: {file_record}")
     if file_record is None:
         return ""
+
+    # 'path' is now the directory path
     path = Path(str(file_record.q.path))
-    if not path.exists():
+    logger.debug(f"folder path: {path}")
+    if not path.exists() or not path.is_dir():
         return ""
-    return path.read_text(encoding="utf-8")
+
+    # 1. Gather all Markdown files inside the session directory
+    # sorted() naturally sorts by filename, which orders our timestamps chronologically
+    md_files = sorted(path.glob("*.md"))
+    if not md_files:
+        return ""
+
+    # 2. Read and concatenate the contents of all files
+    content_list = []
+    for file_path in md_files:
+        try:
+            content_list.append(file_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.error(f"Failed to read memory file {file_path}: {exc}")
+
+    # Join everything with double newlines to keep formatting clean between files
+    return "\n\n".join(content_list)
 
 
 def activate_session(session: QItem | None) -> str:
     store.active_session = session
     session_memory.clear()
+
     if session is None:
         return ""
 
@@ -269,7 +332,7 @@ def delete_session(session: QItem) -> None:
                 file_path.unlink()
             except OSError as exc:
                 logger.warning(f"Failed to delete session file {file_path}: {exc}")
-        Files.delete(file_record)
+        SessionMemories.delete(file_record)
     Sessions.delete(session)
 
 
@@ -467,3 +530,16 @@ def list_installed_models(require_running: bool = True) -> List[str]:
             names.append(name)
 
     return sorted(set(names))
+
+
+def list_folder_paths(base_path: str, paths: list[str] | None = None) -> list[str]:
+    if paths is None:
+        paths = [base_path]
+    if Path(base_path).is_dir():
+        for entry in Path(base_path).iterdir():
+            if entry.is_dir():
+                paths.append(str(entry))
+                list_folder_paths(str(entry), paths)
+            else:
+                paths.append(str(entry))
+    return paths

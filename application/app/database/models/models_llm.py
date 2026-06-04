@@ -35,7 +35,9 @@ class SessionModel(Model):
     _updated_at: int
     message_ids: Otm = Otm("messages")
     theme_id: Mto = Mto("themes")
-    file_ids: Otm = Otm("files")
+    memory_file_ids: Otm = Otm("session_memory")
+    folder_ids: Otm = Otm("session_folders")
+    file_ids: Otm = Otm("session_files")
 
     class Meta(Model.Meta):
         auto_now_add = ["_created_at"]
@@ -50,13 +52,23 @@ class SessionModel(Model):
         return datetime.fromtimestamp(self._updated_at, tz=timezone.utc)
 
 @dataclass
-class FileModel(Model):
-    """files"""
+class SessionMemoryModel(Model):
+    """session_memory"""
+    path: str = ""
+    session_id: Mto = Mto("sessions")
+
+@dataclass
+class SessionFileModel(Model):
+    """session_files"""
     path: str = ""
     is_dir: bool = False
-    readable: bool = False
-    writable: bool = False
-    executable: bool = False
+    selected: bool = False
+    session_id: Mto = Mto("sessions")
+
+@dataclass
+class SessionFolderModel(Model):
+    """session_folders"""
+    path: str = ""
     session_id: Mto = Mto("sessions")
 
 @dataclass

@@ -15,7 +15,9 @@ from app.database.models.models_llm import (
     MessageModel,
     ThemeModel,
     PersonalityModel,
-    FileModel,
+    SessionMemoryModel,
+    SessionFileModel,
+    SessionFolderModel,
 )
 
 logger = Logger("app.database", display_level=False)
@@ -34,7 +36,9 @@ Sessions = db.table("sessions", SessionModel)
 Messages = db.table("messages", MessageModel)
 Themes = db.table("themes", ThemeModel)
 Personalities = db.table("personalities", PersonalityModel)
-Files = db.table("files", FileModel)
+SessionMemories = db.table("session_memory", SessionMemoryModel)
+SessionFiles = db.table("session_files", SessionFileModel)
+SessionFolders = db.table("session_folders", SessionFolderModel)
 
 def init_db() -> None:
     try:

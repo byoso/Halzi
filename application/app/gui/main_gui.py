@@ -6,14 +6,18 @@ gi.require_version("Gtk", "3.0")
 from pathlib import Path
 
 from gi.repository import Gtk as gtk, GLib, GdkPixbuf
+
+import threading
+
 from .constants import SIDEBAR_WIDTH
 from .styles import load_css
 from .headerbar import build_headerbar
-from .left_panel import build_left_panel
+from .left_panel import LeftPanel
 from .center_panel import build_center_panel, CenterPanel
-from .right_panel import build_right_panel
+from .right_panel import RightPanel
 from .stack_switcher import StackSwitcher
 from .settings_gui.main_settings import build_settings_page
+from .logger import logger
 
 from app.config import APP_NAME
 from app import status_state
@@ -54,6 +58,7 @@ class MainWindow(gtk.Window):
         self.page_stack.set_transition_type(gtk.StackTransitionType.CROSSFADE)
         self.page_stack.set_transition_duration(150)
 
+        self.right_panel = RightPanel(on_memory_saved=self._on_memory_saved)
         main_page = self._build_main_page()
         settings_page = build_settings_page()
 
@@ -92,25 +97,25 @@ class MainWindow(gtk.Window):
             get_header_mic_active=lambda: self.mic_button.get_active(),
             set_header_mic_active=lambda v: self.mic_button.set_active(v),
         )
-        self.left_panel = build_left_panel(
+        self.center_panel.connect("prompt-submitted", self._on_prompt_submitted)
+        self.left_panel = LeftPanel(
             on_theme_changed=self._on_theme_changed,
             on_session_selected=self._on_session_selected,
         )
-        right_panel = build_right_panel(on_memory_saved=self._on_memory_saved)
 
         self.left_panel.set_size_request(SIDEBAR_WIDTH, -1)
         self.left_panel.set_hexpand(False)
         self.left_panel.set_vexpand(True)
         self.center_panel.set_hexpand(True)
         self.center_panel.set_vexpand(True)
-        right_panel.set_size_request(SIDEBAR_WIDTH , -1)
-        right_panel.set_hexpand(False)
-        right_panel.set_vexpand(True)
+        self.right_panel.set_size_request(SIDEBAR_WIDTH , -1)
+        self.right_panel.set_hexpand(False)
+        self.right_panel.set_vexpand(True)
 
         # 3 columns: fixed SIDEBAR_WIDTH + flexible center + fixed SIDEBAR_WIDTH
         content.attach(self.left_panel, 0, 0, 1, 1)
         content.attach(self.center_panel, 1, 0, 1, 1)
-        content.attach(right_panel, 2, 0, 1, 1)
+        content.attach(self.right_panel, 2, 0, 1, 1)
 
         status_bar = gtk.Box(orientation=gtk.Orientation.HORIZONTAL, spacing=0)
         status_bar.set_size_request(-1, 22)
@@ -142,6 +147,7 @@ class MainWindow(gtk.Window):
         if isinstance(self.center_panel, CenterPanel):
             self.center_panel.clear_conversation_view()
 
+
     def _on_session_selected(self, session) -> None:
         if not isinstance(self.center_panel, CenterPanel):
             return
@@ -153,6 +159,17 @@ class MainWindow(gtk.Window):
         markdown_content = core.load_session_markdown(session)
         if markdown_content:
             self.center_panel.append_message(markdown_content, is_user=False)
+
+        if isinstance(self.right_panel, RightPanel):
+            self.right_panel.files_cherry_picker_lister.file_lister.clear_files()
+            self.right_panel.files_cherry_picker_lister.file_cherry_picker.clear_folders()
+
+            folders = [folder.q.path for folder in session.q.folder_ids]
+            files = [file.q.path for file in session.q.file_ids]
+            for folder in folders:
+                self.right_panel.files_cherry_picker_lister.file_cherry_picker.add_folder(None, folder)
+            for file in files:
+                self.right_panel.files_cherry_picker_lister.file_lister.add_file(file)
 
     def _on_memory_saved(self, session) -> None:
         if hasattr(self.left_panel, "active_session"):
@@ -171,6 +188,11 @@ class MainWindow(gtk.Window):
     def _sync_mic_toggle_off(self) -> None:
         if self.mic_button.get_active():
             self.mic_button.set_active(False)
+
+    def get_allowed_files(self) -> list[str]:
+        if isinstance(self.right_panel, RightPanel):
+            return self.right_panel.get_allowed_files()
+        return []
 
     def _on_destroy(self, *args) -> None:
         try:
@@ -203,6 +225,13 @@ class MainWindow(gtk.Window):
             pass
 
         gtk.main_quit()
+
+    def _on_prompt_submitted(self, widget, prompt: str) -> None:
+        files = self.get_allowed_files()
+
+        if isinstance(self.center_panel, CenterPanel):
+            # transmit the prompt and allowed files to the center panel for processing
+            self.center_panel._submit_prompt_text(prompt, files=files, clear_input=True)
 
 
 if __name__ == "__main__":

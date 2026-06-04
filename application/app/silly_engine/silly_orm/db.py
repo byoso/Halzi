@@ -295,7 +295,7 @@ class SillyDb:
 
         if name not in self._tables:
             if model is None:
-                raise SillyDbError("model required for first declaration")
+                raise SillyDbError(f"model '{name}' required for first declaration")
 
             table_obj = Table(self, name, model)
 

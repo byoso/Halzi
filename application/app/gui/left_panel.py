@@ -13,7 +13,7 @@ from .new_theme_dialog import NewThemeDialog
 from app.gui.new_session_dialog import NewSessionDialog
 
 
-class ThemePanel(gtk.Box):
+class LeftPanel(gtk.Box):
     def __init__(
         self,
         on_theme_changed: Optional[Callable[[], None]] = None,
@@ -334,13 +334,3 @@ class ThemePanel(gtk.Box):
 
         self._sync_buttons_for_active_session(self.active_session)
         self.show_all()
-
-
-def build_left_panel(
-    on_theme_changed: Optional[Callable[[], None]] = None,
-    on_session_selected: Optional[Callable[[QItem | None], None]] = None,
-) -> gtk.Widget:
-    return ThemePanel(
-        on_theme_changed=on_theme_changed,
-        on_session_selected=on_session_selected,
-    )

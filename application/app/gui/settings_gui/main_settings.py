@@ -7,7 +7,7 @@ from gi.repository import Gtk as gtk
 
 from app.database.models.models_settings import SettingsModel
 from app.gui.error_dialogue import show_error_dialog
-from app.settings import get_settings, update_settings
+from app.settings import get_settings, update_settings, ALLOWED_SETTINGS_KEYS
 from app.core import list_installed_models
 
 
@@ -20,13 +20,6 @@ FIELD_CHOICES = {
     "compute_type": ["int8", "float16", "float32"],
     "ollama_model": list_installed_models(),
 }
-
-
-EDITABLE_FIELDS = [
-    field.name
-    for field in fields(SettingsModel)
-    if field.name != "_id" and not field.name.startswith("_")
-]
 
 
 def _humanize(name: str) -> str:
@@ -44,7 +37,7 @@ class MainSettingsPage(gtk.Box):
         self.set_margin_end(12)
 
         all_defaults = asdict(SettingsModel())
-        self._default_values = {name: all_defaults[name] for name in EDITABLE_FIELDS}
+        self._default_values = {name: all_defaults[name] for name in ALLOWED_SETTINGS_KEYS}
         self._field_types = {name: type(value) for name, value in self._default_values.items()}
         self._inputs = {}
         self._original_values = {}
@@ -76,7 +69,7 @@ class MainSettingsPage(gtk.Box):
         grid.set_margin_start(10)
         grid.set_margin_end(10)
 
-        for row, field_name in enumerate(EDITABLE_FIELDS):
+        for row, field_name in enumerate(ALLOWED_SETTINGS_KEYS):
             label = gtk.Label(label=f"{_humanize(field_name)}:")
             label.set_xalign(0.0)
             label.get_style_context().add_class("halzi-settings-field-label")
@@ -143,7 +136,7 @@ class MainSettingsPage(gtk.Box):
     def reload_from_database(self) -> None:
         settings = get_settings()
         all_values = asdict(settings)
-        self._original_values = {name: all_values[name] for name in EDITABLE_FIELDS}
+        self._original_values = {name: all_values[name] for name in ALLOWED_SETTINGS_KEYS}
         self._apply_values(self._original_values)
 
     def _apply_values(self, values: dict) -> None:

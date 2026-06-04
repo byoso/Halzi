@@ -1,9 +1,8 @@
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Pango", "1.0")
-from gi.repository import Gtk as gtk, Gdk, GLib, Pango
-from pathlib import Path
-import sys
+from gi.repository import Gtk as gtk, Gdk, GLib, GObject, Pango
+import os
 import threading
 import queue
 import re
@@ -13,12 +12,12 @@ import traceback
 from app import status_state
 from app.silly_engine.text_tools import sanitize_for_tts
 from app.gui.markdown_render import markdown_to_pango
-from app.core import process_prompt
+from app import core
 from app.gui.logger import logger
 
 
 USER_PROMPT_COLOR = "#101d2e"
-USER_PROMPT_SIZE = "large"
+USER_PROMPT_SIZE = "medium"  # can be "small", "medium", "large" or a specific Pango size like "12000" for 12pt
 
 try:
     from app.piper.main_piper import text_to_speech  # type: ignore
@@ -51,6 +50,10 @@ except Exception:
     logger.warning("VAD audio capture control functions are not available. VAD-TTS integration will be disabled.")
 
 class CenterPanel(gtk.Box):
+    __gsignals__ = {
+        # Déclaration d'un signal qui va envoyer une chaîne de caractères (le texte du prompt)
+        "prompt-submitted": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+    }
     def __init__(
         self,
         on_voice_stopped: Optional[Callable[[], None]] = None,
@@ -677,18 +680,19 @@ class CenterPanel(gtk.Box):
         tts_active = self._tts_pipeline_active()
 
         if tts_active:
-            # Clear now so delayed submit won't wipe user typing done while waiting.
             if prompt:
                 buffer_.set_text("")
+            # Si tu as un thread d'interruption, il devra lui aussi notifier le parent à la fin
             threading.Thread(target=self._interrupt_then_submit, args=(prompt,), daemon=True).start()
             return
 
         if prompt:
-            self._submit_prompt_text(prompt, clear_input=True)
+            buffer_.set_text("") # On vide le buffer ici
+            self.emit("prompt-submitted", prompt)
         else:
             self._notify_ready_for_input()
 
-    def _submit_prompt_text(self, prompt: str, clear_input: bool) -> None:
+    def _submit_prompt_text(self, prompt: str, files: list[str], clear_input: bool) -> None:
 
         if not prompt:
             return
@@ -704,12 +708,50 @@ class CenterPanel(gtk.Box):
 
         self._set_status_threadsafe("Processing...")
 
+        # 1. VISUAL/MEMORY: Append ONLY the original pure text to the UI and memory history
         self.append_message(prompt, is_user=True)
         if clear_input:
             buffer_ = self.input_view.get_buffer()
             buffer_.set_text("")
 
-        if process_prompt is None:
+        # 2. CONTEXT EXTRACTION: Build the enriched prompt for the LLM backend
+        ai_prompt = prompt
+        if files:
+            file_context = "\n\n--- Attached Files Context ---\n"
+
+            # Liste d'extensions de fichiers textuels autorisés (à adapter selon tes besoins)
+            TEXT_EXTENSIONS = {
+                '.txt', '.py', '.md', '.json', '.csv', '.xml', '.yaml', '.yml',
+                '.ini', '.cfg', '.sh', '.bat', '.js', '.ts', '.html', '.css',
+                '.gd', '.gdscript', '.c', '.cpp', '.h', '.hpp', '.go', '.rs',
+            }
+
+            for f_path in files:
+                if os.path.isdir(f_path):
+                    ref_list = core.list_folder_paths(f_path)
+                    file_context += f"Consider the following folder structure for '{os.path.basename(f_path)}':\n"
+                    for ref in ref_list:
+                        file_context += f"- {ref}\n"
+                else:
+                    # Extraction de l'extension en minuscules
+                    _, ext = os.path.splitext(f_path.lower())
+
+                    # Sécurité : Si ce n'est pas une extension de texte connue, on refuse la lecture brute
+                    if ext not in TEXT_EXTENSIONS:
+                        file_context += f"\n[File: {os.path.basename(f_path)} - Binary or Image file ignored (Metadata only)]\n"
+                        continue
+
+                    try:
+                        with open(f_path, "r", encoding="utf-8", errors="replace") as f:
+                            # errors="replace" évite le crash si un fichier texte a un caractère corrompu
+                            file_context += f"\n[File: {os.path.basename(f_path)}]\n{f.read()}\n"
+                    except Exception as e:
+                        file_context += f"\n[File: {os.path.basename(f_path)} - Error reading file: {e}]\n"
+
+            # Combine the user prompt with the hidden files content
+            ai_prompt = f"{prompt}\n{file_context}"
+
+        if core.process_prompt is None:
             self.append_message("Error: unable to import ollama core.", is_user=False)
             try:
                 self._response_submit_lock.release()
@@ -717,7 +759,7 @@ class CenterPanel(gtk.Box):
                 pass
             return
 
-        process_fn = process_prompt
+        process_fn = core.process_prompt
 
         # Mark processing state and run the LLM call in a background thread
         self.is_processing_response = True
@@ -890,7 +932,9 @@ class CenterPanel(gtk.Box):
 
             try:
                 GLib.idle_add(self._start_assistant_stream)
-                _, response = process_fn(prompt, display=False, on_chunk=on_chunk)
+
+                # 3. FIX: We pass 'ai_prompt' to the process function instead of the raw text
+                _, response = process_fn(ai_prompt, display=False, on_chunk=on_chunk)
 
                 # Safety fallback if no callback chunk arrived.
                 if (not streamed_any["value"]) and response:
@@ -1048,9 +1092,7 @@ class CenterPanel(gtk.Box):
             GLib.idle_add(self._finalize_voice_stopped)
 
     def _submit_voice_prompt(self, prompt: str) -> bool:
-        # In big-mic mode, keep current user input untouched.
-        # Voice prompts are submitted directly without clearing TextView.
-        self._submit_prompt_text(prompt.strip(), clear_input=False)
+        self.emit("prompt-submitted", prompt)
         return False
 
     def _fill_input_text(self, prompt: str) -> bool:

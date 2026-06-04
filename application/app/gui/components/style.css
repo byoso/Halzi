@@ -1,0 +1,213 @@
+
+.root {
+  background: linear-gradient(to bottom, #f7fbf7 0%, #eef6f0 100%);
+}
+
+.panel {
+  background-color: rgba(255, 255, 255, 0.88);
+  border: 1px solid #cddfd2;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.scroll {
+  background-color: transparent;
+}
+
+.placeholder-btn {
+  background-image: none;
+  background-color: #19944b;
+  color: #ffffff;
+  border: 1px solid #0e6f34;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 700;
+}
+
+.placeholder-btn:hover {
+  background-color: #1daf57;
+}
+
+.output {
+  background-color: rgba(255, 255, 255, 0.78);
+  border: 1px solid #d8e6dc;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.output-text {
+  color: #153022;
+  font-size: 14px;
+}
+
+.input-area {
+  background-color: rgba(245, 250, 247, 0.9);
+  border-top: 1px solid #cddfd2;
+}
+
+.input-label {
+  color: #2e4a38;
+  font-weight: 700;
+}
+
+.input-text {
+  border: 1px solid #b8d1c0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #153022;
+}
+
+.option-row {
+  background-color: rgba(223, 233, 226, 0.7);
+  border: 1px solid #c8d6cb;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.header-toggle {
+  background-image: none;
+  border: 2px solid #cddfd2;
+  border-radius: 8px;
+  padding: 4px;
+  transition: none;
+}
+
+.header-toggle:hover {
+  border-color: #bfcfc4;
+}
+
+.header-toggle-on,
+.header-toggle-on:hover,
+.header-toggle-on:checked {
+  border: 2px solid #19944b;
+}
+
+.memorize-button {
+  background-image: none;
+  background-color: #4a7fa5;
+  color: #ffffff;
+  border: 1px solid #3a6a8a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
+.memorize-button:hover {
+  background-color: #5590b8;
+}
+
+.status-bar {
+  background-color: #dfe9e2;
+  border-top: 1px solid #c8d6cb;
+}
+
+.status-label {
+  color: #2e4a38;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.add-theme-button,
+.create-theme-button {
+  background-image: none;
+  background-color: #4a7fa5;
+  color: #ffffff;
+  border: 1px solid #3a6a8a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
+.add-theme-button:hover,
+.create-theme-button:hover {
+  background-color: #5590b8;
+}
+
+.theme-button {
+  background-image: none;
+  background-color: #ffffff;
+  border: 2px solid #cddfd2;
+  border-radius: 8px;
+  color: #153022;
+  padding: 6px 10px;
+}
+
+.theme-button:hover {
+  border-color: #bfcfc4;
+}
+
+.theme-button-on,
+.theme-button-on:hover,
+.theme-button-on:checked {
+  border: 2px solid #19944b;
+}
+
+.theme-delete-button {
+  background-image: none;
+  background-color: #cc2222;
+  color: #ffffff;
+  border: 1px solid #991a1a;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-weight: 700;
+}
+
+.theme-delete-button:hover {
+  background-color: #e02828;
+}
+
+.stack-switcher {
+  padding-left: 4px;
+}
+
+.stack-switcher-button {
+  background-image: none;
+  border: 2px solid #cddfd2;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.stack-switcher-button:hover {
+  border-color: #bfcfc4;
+}
+
+.settings-page {
+  background-color: transparent;
+}
+
+.settings-title {
+  color: #153022;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.settings-field-label {
+  color: #2f343a;
+}
+
+.settings-button {
+  background-image: none;
+  background-color: #ffffff;
+  color: #153022;
+  border: 1px solid #cddfd2;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.settings-button:hover {
+  border-color: #bfcfc4;
+}
+
+.settings-button-primary {
+  background-image: none;
+  background-color: #19944b;
+  color: #ffffff;
+  border: 1px solid #0e6f34;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
+.settings-button-primary:hover {
+  background-color: #1daf57;
+}
