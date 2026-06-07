@@ -116,5 +116,7 @@ class RightPanel(gtk.Box):
                 })
             logger.debug(f"Saved folder: {folder_record.q.path} linked to session ID: {folder_record.q.session_id}")
 
+        self.set_status(f"Session files/folders memorized for session: {source_session.q.name}")
+
     def get_allowed_files(self) -> list[str]:
         return self.files_cherry_picker_lister.get_allowed_files()

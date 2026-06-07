@@ -31,7 +31,7 @@ MEMORY_DIR = BASE_DIR / "memory"
 MEMORY_DIR.mkdir(exist_ok=True)
 MEMORY_TTL = 7 * 24 * 3600  # 7 days in seconds
 MEMORY_TTL_ERASE = 30 * 24 * 3600  # 30 days in seconds
-INITIAL_CONTEXT_FILE = MEMORY_DIR / "personalities" / "init_personality.md"
+INITIAL_CONTEXT_FILE = MEMORY_DIR / "personalities" / "default.md"
 THEMES = "Themes"
 SESSIONS = "sessions"
 
