@@ -11,6 +11,8 @@ from app import core
 from app.silly_engine.silly_orm.item import QItem
 from app.store import store
 from app.gui.components.big.files_cherry_picker_lister import FilesCherryPickerLister
+from app.gui.logger import logger
+
 
 
 class RightPanel(gtk.Box):
@@ -22,6 +24,7 @@ class RightPanel(gtk.Box):
         self.get_style_context().add_class("halzi-panel")
         self.set_hexpand(True)
         self.set_vexpand(True)
+        self.on_memory_saved = on_memory_saved
 
         box = gtk.Box(orientation=gtk.Orientation.VERTICAL, spacing=10)
         box.set_margin_top(10)
@@ -67,7 +70,7 @@ class RightPanel(gtk.Box):
                 topic=str(source_session.q.name),
                 source_session=source_session,
             )
-            if saved_session is not None and self.__init__on_memory_saved is not None:
+            if saved_session is not None and self.on_memory_saved is not None:
                 self.on_memory_saved(saved_session)
             self.set_status(f"Conversation memorized in theme: {store.active_theme.q.name} -> session: {source_session.q.name}")
         except Exception as exc:
@@ -90,7 +93,7 @@ class RightPanel(gtk.Box):
                     "session_id": source_session.q._id,
 
                 })
-            print(f"Saved file: {file_record.q.path} linked to session ID: {file_record.q.session_id}")
+            logger.debug(f"Saved file: {file_record.q.path} linked to session ID: {file_record.q.session_id}")
 
         # Save folders to the database and link them to the session
         for folder_path in current_folders:
@@ -99,7 +102,7 @@ class RightPanel(gtk.Box):
                     "path": folder_path,
                     "session_id": source_session.q._id
                 })
-            print(f"Saved folder: {folder_record.q.path} linked to session ID: {folder_record.q.session_id}")
+            logger.debug(f"Saved folder: {folder_record.q.path} linked to session ID: {folder_record.q.session_id}")
 
 
     def get_allowed_files(self) -> list[str]:
