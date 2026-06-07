@@ -45,6 +45,11 @@ def init_db() -> None:
         settings = Settings.first()
         if settings is None:
             Settings.insert(asdict(SettingsModel()))
+        personality = Personalities.first()
+        if personality is None:
+            default_personality = PersonalityModel()
+            default_personality.is_active = True
+            Personalities.insert(asdict(default_personality))
     except SillyDbError as e:
         logger.error(f"Database error: {e}")
 

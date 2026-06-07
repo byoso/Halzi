@@ -176,9 +176,6 @@ def save_memory(history, theme: QItem, topic: str = "No topic", source_session: 
     output_dir = theme_dir(theme) / safe_session_dirname
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # ------------------------------------------------------------------------
-    # FIX: Filter history to only save NEW messages (the delta)
-    # ------------------------------------------------------------------------
     # 1. Read what has already been saved in this directory
     existing_content = ""
     md_files = sorted(output_dir.glob("*.md"))
@@ -224,9 +221,10 @@ def save_memory(history, theme: QItem, topic: str = "No topic", source_session: 
         session = source_session
     else:
         session = Sessions.insert(payload)
+        source_session = session
 
     # Check if this directory is already registered to avoid duplicate rows in SessionMemories
-    existing_memory = SessionMemories.filter(session_id=session.q._id, path=str(output_dir)).first()
+    existing_memory = SessionMemories.filter(session_id=session.q._id).first()
     if not existing_memory:
         SessionMemories.insert(
             {
@@ -234,9 +232,6 @@ def save_memory(history, theme: QItem, topic: str = "No topic", source_session: 
                 "session_id": session.q._id,
             }
         )
-
-    if source_session is None:
-        activate_session(session)
 
     return session
 

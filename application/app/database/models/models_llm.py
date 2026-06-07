@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
+
 from app.silly_engine.silly_orm import Model, Mto, Otm, Mto
 
 
@@ -16,7 +18,8 @@ class PersonalityModel(Model):
     """personalities"""
     name: str = "Chloe"
     description: str = "A friendly and helpful assistant."
-    file: str = ""  # path to the Markdown file of this personnality
+    file: str = str(Path("personalities/default.md").absolute())
+    is_active: bool = False
     theme_ids: Otm = Otm("themes")
 
 @dataclass
@@ -25,7 +28,7 @@ class ThemeModel(Model):
     name: str
     description: str
     session_ids: Otm = Otm("sessions")
-    personnality_ids: Mto = Mto("personalities")
+    personality_ids: Mto = Mto("personalities")
 
 @dataclass
 class SessionModel(Model):
