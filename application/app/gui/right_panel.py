@@ -38,6 +38,11 @@ class RightPanel(gtk.Box):
         memorize_button.connect("clicked", self.on_memorize_clicked)
         box.pack_start(memorize_button, False, False, 0)
 
+        memorize_session_files = gtk.Button(label="memorize session files/folders")
+        memorize_session_files.get_style_context().add_class("halzi-memorize-button")
+        memorize_session_files.connect("clicked", self.on_memorize_files_clicked)
+        box.pack_start(memorize_session_files, False, False, 0)
+
         source_session = store.active_session
         if source_session is not None:
             folders = [folder.q.path for folder in source_session.q.folder_ids]
@@ -77,6 +82,13 @@ class RightPanel(gtk.Box):
             self.set_status(f"Memorize failed: {exc}")
 
 
+    def on_memorize_files_clicked(self, _button: gtk.Button) -> None:
+
+        source_session = store.active_session
+        if source_session is None:
+            self.set_status("No active session selected. Create or select a session first.")
+            return
+
         # remove all session_files and session_folders linked to the session
         SessionFiles.delete().filter(session_id=source_session.q._id).execute()
         SessionFolders.delete().filter(session_id=source_session.q._id).execute()
@@ -103,7 +115,6 @@ class RightPanel(gtk.Box):
                     "session_id": source_session.q._id
                 })
             logger.debug(f"Saved folder: {folder_record.q.path} linked to session ID: {folder_record.q.session_id}")
-
 
     def get_allowed_files(self) -> list[str]:
         return self.files_cherry_picker_lister.get_allowed_files()
